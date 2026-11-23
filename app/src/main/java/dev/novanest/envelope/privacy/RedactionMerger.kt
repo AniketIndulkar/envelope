@@ -6,6 +6,7 @@ object RedactionMerger {
     fun merge(text: String, spans: List<PiiSpan>): Redaction {
         // 1. One candidate per distinct value; the highest-priority source decides its type.
         val candidates = spans
+            .flatMap(::withNameParts)
             .filter { it.text.isNotBlank() && !tooVague(it) }
             .sortedBy { it.source.ordinal }
             .distinctBy { normalizeValue(it.text) }
@@ -41,6 +42,20 @@ object RedactionMerger {
         out.append(text, cursor, text.length)
 
         return Redaction(original = text, redacted = out.toString(), tokens = tokenFor.values.toList(), placements = placements)
+    }
+
+    private val TITLES = setOf("mr", "mrs", "ms", "miss", "mx", "dr", "sir", "dame", "lord", "lady", "rev", "prof")
+
+    /**
+     * Letters name you in full once ("Mrs Margaret O'Neill") and then by surname ("Dear Mrs O'Neill"). Nano tags the
+     * full name, so each real part of it (not titles, not initials) is hidden wherever it appears alone too.
+     */
+    private fun withNameParts(span: PiiSpan): List<PiiSpan> {
+        if (span.type != PiiType.NAME) return listOf(span)
+        val parts = span.text.trim().split(Regex("\\s+"))
+            .map { it.trim(',', '.', ';', ':') }
+            .filter { it.length >= 3 && it.first().isUpperCase() && it.lowercase().trimEnd('.') !in TITLES }
+        return if (parts.size < 2) listOf(span) else listOf(span) + parts.map { PiiSpan(it, PiiType.NAME, span.source) }
     }
 
     /**

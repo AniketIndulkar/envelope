@@ -70,4 +70,15 @@ class RedactionMergerTest {
         assertEquals("[ADDRESS_1] LS6", r.redacted)
         assertEquals("Flat 2, 14 Elm Road, Leeds", r.tokens.single().value)
     }
+
+    @Test fun surnameAloneIsHiddenWhenTheFullNameIs() {
+        val r = merge("Mrs Margaret O'Neill\nDear Mrs O'Neill, and Margaret too.", name("Margaret O'Neill"))
+        assertEquals("Mrs [NAME_1]\nDear Mrs [NAME_2], and [NAME_3] too.", r.redacted)
+        assertEquals(listOf("Margaret O'Neill", "O'Neill", "Margaret"), r.tokens.map { it.value })
+    }
+
+    @Test fun titlesAndShortPartsOfANameAreNotHiddenAlone() {
+        val r = merge("Mrs Jo Li wrote. Mrs Smith replied.", name("Mrs Jo Li"))
+        assertEquals("[NAME_1] wrote. Mrs Smith replied.", r.redacted)
+    }
 }

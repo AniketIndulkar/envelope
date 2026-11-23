@@ -4,8 +4,8 @@ root = pathlib.Path(__file__).resolve().parent.parent
 samples = root / "app/src/main/assets/samples"
 chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 css = """body{margin:0;background:#fff}
-.page{box-sizing:border-box;width:900px;min-height:1270px;padding:70px 80px;font:19px/1.45 Georgia,serif;color:#1a1a1a}
-.stamp{font:bold 13px Arial,sans-serif;color:#b3261e;letter-spacing:.08em;border:2px solid #b3261e;display:inline-block;padding:4px 8px;margin-bottom:28px}
+.page{box-sizing:border-box;width:900px;min-height:1270px;padding:70px 80px;font:19px/1.5 Arial,Helvetica,sans-serif;color:#1a1a1a}
+.stamp{font:bold 13px Arial,sans-serif;color:#b3261e;letter-spacing:.08em;background:#fdecea;display:inline-block;padding:4px 8px;margin-bottom:28px}
 pre{white-space:pre-wrap;font:inherit;margin:0}"""
 for txt in sorted(samples.glob("*.txt")):
     lines = txt.read_text().splitlines()
