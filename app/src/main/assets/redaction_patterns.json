@@ -58,7 +58,7 @@
   },
   {
     "type": "REFERENCE",
-    "regex": "(?i)(?:your reference|payment reference|hospital number|case (?:number|reference)|policy number|tenancy reference|customer (?:number|ref(?:erence)?)|council tax (?:account|reference)(?: number)?)[^\\w]{0,5}([A-Z0-9]{6,14})\\b",
+    "regex": "(?i)(?:your reference|payment reference|hospital number|case (?:number|reference)|policy number|tenancy reference|customer (?:number|ref(?:erence)?)|council tax (?:account|reference)(?: number)?)(?:\\s*(?:number|no\\.?))?[^\\w]{0,5}((?=[A-Z0-9]*\\d)[A-Z0-9]{6,14})\\b",
     "group": 1
   }
 ]

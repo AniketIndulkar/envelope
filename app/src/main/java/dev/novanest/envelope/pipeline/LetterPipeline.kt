@@ -13,7 +13,7 @@ import dev.novanest.envelope.privacy.PiiSpan
 import dev.novanest.envelope.privacy.RedactionMode
 import dev.novanest.envelope.privacy.RedactionService
 import dev.novanest.envelope.privacy.Restorer
-import dev.novanest.envelope.privacy.TokenEntry
+import dev.novanest.envelope.privacy.Redaction
 import java.io.IOException
 import java.time.LocalDate
 
@@ -37,16 +37,21 @@ class LetterPipeline(
         return Prepared(outcome, listOf(StepRecord(Step.READ, Engine.ON_DEVICE), StepRecord(Step.FIND_DETAILS, findEngine)))
     }
 
-    suspend fun quickCheck(prepared: Prepared): Pair<QuickCheck, StepRecord> {
+    /**
+     * PREFER_ON_DEVICE may fall back to the cloud. That is only safe when Nano found the names and addresses;
+     * in rules-only mode nothing leaves the phone until the user has reviewed the letter and tapped Explain.
+     */
+    suspend fun quickCheck(prepared: Prepared): Pair<QuickCheck, StepRecord>? {
+        if (prepared.outcome.mode == RedactionMode.RULES_ONLY) return null
         val prompt = prompts.quickCheck(prepared.outcome.redaction.redacted, today().toString())
-        val (qc, engine) = callJson<QuickCheck>(quick, prompt, prepared.outcome.redaction.tokens, Step.QUICK_CHECK)
+        val (qc, engine) = callJson<QuickCheck>(quick, prompt, prepared.outcome.redaction, Step.QUICK_CHECK)
         return qc to StepRecord(Step.QUICK_CHECK, engine)
     }
 
     suspend fun explain(prepared: Prepared, language: String): Explained {
         val tokens = prepared.outcome.redaction.tokens
         val prompt = prompts.explain(prepared.outcome.redaction.redacted, language, today().toString())
-        val (tokenised, engine) = callJson<Explanation>(explainer, prompt, tokens, Step.EXPLAIN)
+        val (tokenised, engine) = callJson<Explanation>(explainer, prompt, prepared.outcome.redaction, Step.EXPLAIN)
         val unknown = linkedSetOf<String>()
         val restored = tokenised.mapText { text ->
             Restorer.restore(text, tokens).also { unknown += it.unknownTokens }.text
@@ -54,10 +59,14 @@ class LetterPipeline(
         return Explained(tokenised, restored, unknown.toList(), prompt, prepared.steps + StepRecord(Step.EXPLAIN, engine))
     }
 
-    /** Guard → call → decode; one retry on unreadable JSON. */
-    private suspend inline fun <reified T> callJson(model: TextModel, prompt: String, tokens: List<TokenEntry>, step: Step): Pair<T, Engine> {
+    /**
+     * Guard → call → decode; one retry on unreadable JSON. The guard checks the letter text, the only part of the
+     * prompt that comes from the user; our own template words ("address", "number") must not block sending.
+     */
+    private suspend inline fun <reified T> callJson(model: TextModel, prompt: String, letter: Redaction, step: Step): Pair<T, Engine> {
+        check(prompt.contains(letter.redacted)) { "Prompt must embed the guarded letter text" }
         try {
-            guard.assertSafeToSend(prompt, tokens)
+            guard.assertSafeToSend(letter.redacted, letter.tokens)
         } catch (e: LeakDetectedException) {
             throw PipelineError.Leak(e.leaks)
         }

@@ -23,4 +23,7 @@ class LeakGuardTest {
 
     @Test fun tokenValueInsideLongerWordIsNotALeak() =
         assertTrue(guard.findLeaks("Annual Leeway", listOf(TokenEntry("[NAME_1]", "Ann", PiiType.NAME, SpanSource.NANO))).isEmpty())
+
+    @Test fun tokenValueInsideAPlaceholderIsNotALeak() =
+        assertTrue(guard.findLeaks("Your NI is [NI_NUMBER_1]", listOf(TokenEntry("[REFERENCE_1]", "number", PiiType.REFERENCE, SpanSource.MANUAL))).isEmpty())
 }

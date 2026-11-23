@@ -1,6 +1,7 @@
 package dev.novanest.envelope.privacy
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import dev.novanest.envelope.ai.Engine
 import dev.novanest.envelope.ai.ModelJson
 import dev.novanest.envelope.ai.NanoEntities
@@ -21,6 +22,8 @@ class NanoSpanFinder(
         Chunker.chunk(text, maxWords).flatMapIndexed { index, chunk ->
             try {
                 findInChunk(chunk)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: NanoOffDeviceException) {
                 throw e // never tolerate a reply that didn't come from the phone
             } catch (e: Exception) {
@@ -42,7 +45,7 @@ class NanoSpanFinder(
      * letter drops to rules-only mode: the banner must never claim Nano checked text it didn't.
      */
     private suspend fun retryOnce(index: Int, chunk: String, first: Exception): List<PiiSpan> {
-        Log.w(TAG, "Chunk $index failed, retrying once", first)
+        Log.w(TAG, "Chunk $index failed (${first.javaClass.simpleName}), retrying once")
         return try {
             findInChunk(chunk)
         } catch (e: Exception) {

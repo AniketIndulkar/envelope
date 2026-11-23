@@ -1,6 +1,11 @@
 package dev.novanest.envelope.privacy
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -48,5 +53,14 @@ class RedactionServiceTest {
         val entity = SpanFinder { _ -> listOf(PiiSpan("14 Elm Road", PiiType.ADDRESS, SpanSource.ENTITY)) }
         val o = RedactionService(TestRules.redactor, entity, null).redact("Lives at 14 Elm Road")
         assertEquals("Lives at [ADDRESS_1]", o.redaction.redacted)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun cancellingRedactionDoesNotFallBackToRules() = runTest {
+        var result: RedactionOutcome? = null
+        val job = launch { result = service(nano = SpanFinder { _ -> awaitCancellation() }).redact("Dear Ann Lee") }
+        runCurrent()
+        job.cancel(); job.join()
+        assertNull(result)
     }
 }

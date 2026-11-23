@@ -19,9 +19,8 @@ data class LetterRecord(
 ) {
     val deadline: String? get() = explanation?.deadline ?: quickCheck?.deadline
 
-    /** Every human-readable field that leaves the phone, for the leak guard. */
-    fun outgoingText(): String = buildList {
-        add(redactedText)
+    /** Every AI-written field that leaves the phone, for the leak guard. */
+    fun modelText(): String = buildList {
         quickCheck?.let { addAll(listOf(it.sender, it.oneLine)) }
         explanation?.let { e ->
             addAll(listOf(e.summary, e.whatItMeans, e.consequences, e.draftReply))

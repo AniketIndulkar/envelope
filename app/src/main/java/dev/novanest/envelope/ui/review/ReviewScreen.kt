@@ -173,6 +173,10 @@ private fun QuickCheckCard(ui: SessionUi) {
                 if (ui.quickEngine == Engine.ON_DEVICE) Pill("Checked on this phone", Tint, Deep, Icons.Rounded.PhoneAndroid)
                 else Pill("Checked online, hidden version", Neutral, InkBody, Icons.Rounded.Cloud)
             }
+            ui.quickDeferred -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                IconTile(Icons.Rounded.PhoneAndroid, Tint, Primary)
+                Text("Nothing has left this phone. Hide anything personal, then tap Explain.", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            }
             ui.quickPending -> Text("Quick check running…", style = MaterialTheme.typography.bodyLarge, color = InkSoft)
             else -> Text("Quick check needs Gemini Nano or an internet connection.", style = MaterialTheme.typography.bodyLarge, color = InkSoft)
         }

@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 data class PatternRule(val type: PiiType, val regex: String, val group: Int = 0, val validator: String? = null)
 
 /** Deterministic layer: finds well-formed UK identifiers. Rules are data so Remote Config can update them. */
-class PatternRedactor(rules: List<PatternRule>) {
+class PatternRedactor(val rules: List<PatternRule>) {
 
     private val compiled = rules.map { it to Regex(it.regex) }
 
@@ -31,6 +31,7 @@ class PatternRedactor(rules: List<PatternRule>) {
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
-        fun fromJson(text: String): PatternRedactor = PatternRedactor(json.decodeFromString<List<PatternRule>>(text))
+        fun rulesFromJson(text: String): List<PatternRule> = json.decodeFromString<List<PatternRule>>(text)
+        fun fromJson(text: String): PatternRedactor = PatternRedactor(rulesFromJson(text))
     }
 }

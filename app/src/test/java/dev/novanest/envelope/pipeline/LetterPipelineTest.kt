@@ -89,7 +89,7 @@ class LetterPipelineTest {
 
     @Test fun quickCheckRecordsEngine() = runTest {
         val pl = pipeline(quick = RecordingModel(QC_JSON, Engine.IN_CLOUD))
-        val (qc, rec) = pl.quickCheck(pl.prepare(LETTER))
+        val (qc, rec) = pl.quickCheck(pl.prepare(LETTER))!!
         assertEquals("HMRC", qc.sender)
         assertEquals(StepRecord(Step.QUICK_CHECK, Engine.IN_CLOUD), rec)
     }
@@ -124,5 +124,18 @@ class LetterPipelineTest {
         val pl = pipeline(explainer = { _ -> throw RuntimeException("wrapped", UnknownHostException("no dns")) })
         val prepared = pl.prepare(LETTER)
         assertThrows(PipelineError.Offline::class.java) { runBlocking { pl.explain(prepared, "English") } }
+    }
+
+    @Test fun hiddenWordThatAlsoAppearsInThePromptDoesNotBlockExplain() = runTest {
+        val pl = pipeline(nanoFinder = { _ -> listOf(PiiSpan("Ann Lee", PiiType.NAME, SpanSource.NANO), PiiSpan("address", PiiType.ADDRESS, SpanSource.MANUAL)) })
+        val letter = LETTER + "\nWe have your address on file."
+        pl.explain(pl.prepare(letter), "English")
+    }
+
+    @Test fun rulesOnlyModeSendsNothingBeforeTheUserReviews() = runTest {
+        val quick = RecordingModel(QC_JSON, Engine.IN_CLOUD)
+        val pl = pipeline(quick = quick, nanoFinder = null)
+        assertEquals(null, pl.quickCheck(pl.prepare(LETTER)))
+        assertTrue(quick.prompts.isEmpty())
     }
 }

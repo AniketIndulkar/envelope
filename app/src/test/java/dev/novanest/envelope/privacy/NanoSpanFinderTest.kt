@@ -4,6 +4,10 @@ import dev.novanest.envelope.ai.Engine
 import dev.novanest.envelope.ai.ModelReply
 import dev.novanest.envelope.ai.Prompts
 import dev.novanest.envelope.ai.TextModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -40,5 +44,15 @@ class NanoSpanFinderTest {
         val (model, calls) = scripted({ ModelReply(ok, Engine.IN_CLOUD) })
         assertThrows(NanoOffDeviceException::class.java) { kotlinx.coroutines.runBlocking { finder(model).find("Dear Ann Lee") } }
         assertEquals(1, calls())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun cancellationIsNotRetried() = runTest {
+        var calls = 0
+        val model = TextModel { _ -> calls++; awaitCancellation() }
+        val job = launch { finder(model).find("Dear Ann Lee") }
+        runCurrent()
+        job.cancel(); job.join()
+        assertEquals(1, calls)
     }
 }

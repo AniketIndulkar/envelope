@@ -43,4 +43,9 @@ class PatternRedactorTest {
     @Test fun moneyAndOrgNotRedacted() = assertTrue(redactor.find("HMRC says you owe £412.00").isEmpty())
     @Test fun utrFound() = assertSpan("UTR 12345 67890", "12345 67890", PiiType.REFERENCE)
     @Test fun councilTaxReferenceFound() = assertSpan("Council tax account: 8001234567", "8001234567", PiiType.REFERENCE)
+
+    @Test fun yourReferenceNumberCapturesTheValue() = assertSpan("Your reference number: RGH2287731", "RGH2287731", PiiType.REFERENCE)
+    @Test fun customerReferenceNumberCapturesTheValue() = assertSpan("Customer reference number: AB123456", "AB123456", PiiType.REFERENCE)
+    @Test fun labelFollowedByAPlainWordIsNotAReference() =
+        assertTrue(redactor.find("Case reference - please keep this letter").none { it.type == PiiType.REFERENCE })
 }

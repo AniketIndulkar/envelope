@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import dev.novanest.envelope.ai.Explanation
 import dev.novanest.envelope.privacy.TokenEntry
 import dev.novanest.envelope.ui.Dates
+import dev.novanest.envelope.ui.HelpLinks
 import dev.novanest.envelope.ui.components.ButtonKind
 import dev.novanest.envelope.ui.components.CardShape
 import dev.novanest.envelope.ui.components.CountdownRing
@@ -108,7 +109,7 @@ fun ResultScreen(model: ResultModel, onBack: () -> Unit, onReceipt: (() -> Unit)
             if (e.actions.isNotEmpty()) Todo(e)
             if (e.consequences.isNotBlank()) Notice(Icons.Rounded.WarningAmber, "If you do nothing", e.consequences, SoonBg, SoonInk, SoonTile)
             if (e.draftReply.isNotBlank()) Reply(model, onCopyShare = share)
-            if (e.helpLinks.isNotEmpty()) Help(e)
+            if (e.helpLinks.any { HelpLinks.isTrusted(it.url) }) Help(e)
             if (model.unknownTokens.isNotEmpty()) Text(
                 "Some details in the answer couldn’t be filled in, so they’re shown as placeholders.",
                 style = MaterialTheme.typography.bodySmall, color = InkSoft, modifier = Modifier.padding(horizontal = 4.dp),
@@ -213,7 +214,7 @@ private fun Help(e: Explanation) {
     val context = LocalContext.current
     Surface(shape = CardShape, color = CardWhite, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 6.dp)) {
-            e.helpLinks.filter { it.url.startsWith("https://") }.forEachIndexed { i, link ->
+            e.helpLinks.filter { HelpLinks.isTrusted(it.url) }.forEachIndexed { i, link ->
                 if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Row(
                     Modifier.fillMaxWidth().clickable(role = Role.Button) {

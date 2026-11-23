@@ -24,7 +24,8 @@ class LetterRepository(
 ) {
     /** Throws [dev.novanest.envelope.privacy.LeakDetectedException] and saves nothing if a real detail would leave the phone. */
     suspend fun save(record: LetterRecord, tokens: List<TokenEntry>) {
-        guard.assertSafeToSend(record.outgoingText(), tokens)
+        guard.assertSafeToSend(record.redactedText, tokens)
+        guard.assertNoRealValues(record.modelText(), tokens)
         tokenStore.put(record.id, tokens)
         remote.put(record)
     }

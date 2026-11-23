@@ -1,6 +1,7 @@
 package dev.novanest.envelope.privacy
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 
 @kotlinx.serialization.Serializable
 enum class RedactionMode { NANO_AND_RULES, RULES_ONLY }
@@ -29,14 +30,22 @@ class RedactionService(
     /** Model layers are slow; reuse them while the user toggles chips on the same letter. */
     private suspend fun autoSpans(text: String): Pair<List<PiiSpan>, RedactionMode> {
         cachedAuto?.takeIf { cachedText == text }?.let { return it }
-        val base = patterns.find(text) + runCatching { entity.find(text) }.getOrElse { emptyList() }
-        val nanoSpans = nano?.let { finder ->
-            try { finder.find(text) } catch (e: Exception) { Log.w(TAG, "Nano redaction failed, rules only", e); null }
-        }
+        val base = patterns.find(text) + orNull("Entity extraction") { entity.find(text) }.orEmpty()
+        val nanoSpans = nano?.let { finder -> orNull("Nano redaction") { finder.find(text) } }
         val result = if (nanoSpans != null) (base + nanoSpans) to RedactionMode.NANO_AND_RULES
                      else base to RedactionMode.RULES_ONLY
         cachedText = text; cachedAuto = result
         return result
+    }
+
+    /** A failed layer is skipped (Nano → rules only). Cancellation is not a failure: it propagates. Logs never carry letter text. */
+    private suspend fun <T> orNull(layer: String, block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "$layer failed (${e.javaClass.simpleName}); continuing without it")
+        null
     }
 
     private companion object { const val TAG = "RedactionService" }

@@ -18,7 +18,9 @@ import dev.novanest.envelope.pipeline.Prepared
 import dev.novanest.envelope.pipeline.Step
 import dev.novanest.envelope.pipeline.StepRecord
 import dev.novanest.envelope.privacy.PiiSpan
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import dev.novanest.envelope.privacy.RedactionMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +38,8 @@ data class SessionUi(
     val quickEngine: Engine? = null,
     val quickPending: Boolean = false,
     val quickUnavailable: Boolean = false,
+    /** Rules-only mode: no summary until the user taps Explain, so nothing leaves the phone before review. */
+    val quickDeferred: Boolean = false,
     val explained: Explained? = null,
     val error: String? = null,
     val leaks: List<String> = emptyList(),
@@ -52,16 +56,22 @@ data class SessionUi(
         }
 }
 
-/** One letter's journey, shared by the review, result and receipt screens. */
+/**
+ * One letter's journey, shared by the review, result and receipt screens.
+ * Every coroutine belongs to the current letter: starting a new one cancels the old work, and any result that
+ * still arrives from an older letter is dropped (each update is stamped with the letter's [generation]).
+ */
 class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as EnvelopeApp).container
     private val prefs = Prefs(app)
     private var pipeline: LetterPipeline? = null
     private var ocrText = ""
+    private var letterId = ""
     private val manual = mutableListOf<PiiSpan>()
     private val ignore = mutableSetOf<String>()
-    private var job: Job? = null
+    private var generation = 0
+    private val jobs = mutableListOf<Job>()
 
     private val _ui = MutableStateFlow(SessionUi())
     val ui: StateFlow<SessionUi> = _ui.asStateFlow()
@@ -76,39 +86,67 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun start(read: suspend () -> String) {
-        job?.cancel()
+        generation++
+        jobs.forEach { it.cancel() }; jobs.clear()
         manual.clear(); ignore.clear()
+        letterId = UUID.randomUUID().toString()
         pipeline = container.newPipeline(prefs.forceRulesOnly)
         _ui.value = SessionUi(busy = Busy.READING, language = prefs.language, notConfigured = !container.firebaseReady)
-        job = viewModelScope.launch {
+        forLetter { gen ->
+            ocrText = read()
+            update(gen) { it.copy(busy = Busy.FINDING) }
+            redact(gen)
+            runQuickCheck(gen)
+        }
+    }
+
+    /** Runs [block] for the current letter; failures (not cancellation) surface as an error on that letter only. */
+    private fun forLetter(block: suspend (Int) -> Unit) {
+        val gen = generation
+        jobs += viewModelScope.launch {
             try {
-                ocrText = read()
-                _ui.update { it.copy(busy = Busy.FINDING) }
-                redact()
-                runQuickCheck()
+                block(gen)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                fail(e)
+                fail(gen, e)
             }
         }
     }
 
-    private suspend fun redact() {
-        val p = pipeline ?: throw IllegalStateException("Add your Firebase config (google-services.json) to use Envelope")
-        val prepared = p.prepare(ocrText, manual, ignore)
-        _ui.update { it.copy(busy = null, prepared = prepared, display = LetterDisplay.of(prepared.outcome.redaction, suggest = prepared.outcome.mode == dev.novanest.envelope.privacy.RedactionMode.RULES_ONLY), error = null, leaks = emptyList()) }
+    private inline fun update(gen: Int, change: (SessionUi) -> SessionUi) {
+        if (gen == generation) _ui.update(change)
     }
 
-    private fun runQuickCheck() {
+    private suspend fun redact(gen: Int) {
+        val p = pipeline ?: return
+        val prepared = p.prepare(ocrText, manual, ignore)
+        val suggest = prepared.outcome.mode == RedactionMode.RULES_ONLY
+        update(gen) {
+            it.copy(
+                busy = null, prepared = prepared, display = LetterDisplay.of(prepared.outcome.redaction, suggest),
+                explained = null, error = null, leaks = emptyList(),
+            )
+        }
+    }
+
+    private fun runQuickCheck(gen: Int) {
         val p = pipeline ?: return
         val prepared = _ui.value.prepared ?: return
-        _ui.update { it.copy(quickPending = true) }
-        viewModelScope.launch {
-            try {
-                val (qc, rec) = p.quickCheck(prepared)
-                _ui.update { it.copy(quick = qc, quickEngine = rec.engine, quickPending = false) }
+        update(gen) { it.copy(quickPending = true) }
+        forLetter {
+            val result = try {
+                p.quickCheck(prepared)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Quick check unavailable", e)
-                _ui.update { it.copy(quickPending = false, quickUnavailable = true) }
+                Log.w(TAG, "Quick check unavailable (${e.javaClass.simpleName})")
+                update(gen) { s -> s.copy(quickPending = false, quickUnavailable = true) }
+                return@forLetter
+            }
+            update(gen) {
+                if (result == null) it.copy(quickPending = false, quickDeferred = true)
+                else it.copy(quick = result.first, quickEngine = result.second.engine, quickPending = false)
             }
         }
     }
@@ -120,7 +158,7 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
     private fun reRedact(change: () -> Unit) {
         if (_ui.value.busy != null) return
         change()
-        viewModelScope.launch { runCatching { redact() }.onFailure(::fail) }
+        forLetter { gen -> redact(gen) }
     }
 
     fun setLanguage(language: String) {
@@ -132,23 +170,21 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
         val p = pipeline ?: return
         val prepared = _ui.value.prepared ?: return
         _ui.update { it.copy(busy = Busy.EXPLAINING, error = null) }
-        viewModelScope.launch {
-            try {
-                val explained = p.explain(prepared, _ui.value.language)
-                _ui.update { it.copy(busy = null, explained = explained) }
-                onDone()
-                save(prepared, explained)
-            } catch (e: Exception) {
-                fail(e)
-            }
+        forLetter { gen ->
+            val explained = p.explain(prepared, _ui.value.language)
+            if (gen != generation) return@forLetter
+            update(gen) { it.copy(busy = null, explained = explained) }
+            onDone()
+            save(prepared, explained)
         }
     }
 
+    /** Same id for every save of this letter, so explaining again updates history instead of duplicating it. */
     private suspend fun save(prepared: Prepared, explained: Explained) {
         val repo = container.letters ?: return
         val ui = _ui.value
         val record = LetterRecord(
-            id = UUID.randomUUID().toString(),
+            id = letterId,
             redactedText = prepared.outcome.redaction.redacted,
             quickCheck = ui.quick,
             explanation = explained.tokenised,
@@ -156,14 +192,21 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
             engines = ui.copy(explained = explained).steps,
             createdAt = System.currentTimeMillis(),
         )
-        runCatching { repo.save(record, prepared.outcome.redaction.tokens) }.onFailure { Log.w(TAG, "History save failed", it) }
+        try {
+            repo.save(record, prepared.outcome.redaction.tokens)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "History save failed (${e.javaClass.simpleName})")
+        }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
 
-    private fun fail(e: Throwable) {
-        Log.w(TAG, "Letter failed", e)
-        _ui.update {
+    /** Logs the error type only: exception messages can contain letter text. */
+    private fun fail(gen: Int, e: Throwable) {
+        Log.w(TAG, "Letter failed (${e.javaClass.simpleName})")
+        update(gen) {
             it.copy(
                 busy = null,
                 leaks = (e as? PipelineError.Leak)?.leaks.orEmpty(),

@@ -1,5 +1,6 @@
 package dev.novanest.envelope.data
 
+import dev.novanest.envelope.privacy.PatternRedactor
 import dev.novanest.envelope.privacy.PiiType
 import dev.novanest.envelope.privacy.TestRules
 import org.junit.Assert.assertEquals
@@ -15,11 +16,12 @@ class RemoteSettingsTest {
     @Test fun invalidRemoteUsesBundled() =
         assertTrue(RemoteSettings.patterns("{oops", bundled).find("NI QQ123456C").isNotEmpty())
 
-    @Test fun validRemoteWins() {
+    @Test fun remoteRulesAddToBundledRules() {
         val remote = """[{"type":"REFERENCE","regex":"ZZ\\d{4}"}]"""
         val r = RemoteSettings.patterns(remote, bundled)
         assertEquals(PiiType.REFERENCE, r.find("code ZZ1234").single().type)
-        assertTrue(r.find("NI QQ123456C").isEmpty())
+        assertTrue(r.find("NI QQ123456C").isNotEmpty())
+        assertEquals(PatternRedactor.fromJson(bundled).ruleCount + 1, r.ruleCount)
     }
 
     @Test fun emptyRemoteListUsesBundled() =

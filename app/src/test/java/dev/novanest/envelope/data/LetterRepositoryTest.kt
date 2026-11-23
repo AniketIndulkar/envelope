@@ -57,8 +57,17 @@ class LetterRepositoryTest {
         assertTrue(tokenStore.saved.isEmpty())
     }
 
-    @Test fun saveRefusesLeakInExplanation() {
-        assertThrows(LeakDetectedException::class.java) { runBlocking { repo.save(record("c", reply = "NI QQ123456C"), listOf(ann)) } }
+    @Test fun saveRefusesRealValueInExplanation() {
+        assertThrows(LeakDetectedException::class.java) { runBlocking { repo.save(record("c", reply = "From Ann Lee"), listOf(ann)) } }
+    }
+
+    @Test fun saveAllowsNumbersTheModelAddedItself() = runTest {
+        repo.save(record("d", reply = "Call HMRC on 0300 200 3300"), listOf(ann))
+        assertEquals(1, remote.docs.value.size)
+    }
+
+    @Test fun saveStillRefusesPatternsInTheLetterText() {
+        assertThrows(LeakDetectedException::class.java) { runBlocking { repo.save(record("e", redacted = "NI QQ123456C"), listOf(ann)) } }
     }
 
     @Test fun historySortedByDeadlineThenNewest() = runTest {
