@@ -1,17 +1,27 @@
 package dev.novanest.envelope.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import dev.novanest.envelope.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/**
- * Design calls for Atkinson Hyperlegible (UI, built for low-vision readers) and Source Serif 4 (letters).
- * Swap these two families for the bundled fonts once they are added to res/font.
- */
-val UiFamily: FontFamily = FontFamily.SansSerif
-val LetterFamily: FontFamily = FontFamily.Serif
+/** Atkinson Hyperlegible: designed by the Braille Institute for low-vision readers. Used for everything you operate. */
+val UiFamily = FontFamily(
+    Font(R.font.atkinson_regular, FontWeight.Normal),
+    Font(R.font.atkinson_bold, FontWeight.Bold),
+)
+
+/** Source Serif 4 (variable): letter text, so the letter reads as paper. */
+@OptIn(ExperimentalTextApi::class)
+val LetterFamily = FontFamily(
+    Font(R.font.source_serif, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.source_serif, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+)
 
 private fun ui(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f) =
     TextStyle(fontFamily = UiFamily, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, letterSpacing = tracking.sp)

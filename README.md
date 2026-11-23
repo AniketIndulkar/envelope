@@ -86,3 +86,5 @@ Envelope explains letters in plain English. It is not legal or financial advice.
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+Fonts: [Atkinson Hyperlegible](https://brailleinstitute.org/freefont) (Braille Institute) and [Source Serif 4](https://github.com/adobe-fonts/source-serif) (Adobe), both under the SIL Open Font License 1.1; see [docs/licenses](docs/licenses).
