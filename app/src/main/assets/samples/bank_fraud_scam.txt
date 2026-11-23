@@ -1,0 +1,29 @@
+SAMPLE LETTER - FICTIONAL, FOR DEMONSTRATION ONLY
+
+Northgate Bank
+Security Department
+
+Ms Priya Shah
+52 Orchard Way
+Riverside
+RV2 7XN
+
+Date: 21 November 2026
+Sort code: 40-12-34
+Account number: 31926819
+
+URGENT: YOUR ACCOUNT HAS BEEN SUSPENDED
+
+Dear Customer,
+
+We have detected unusual activity on your account and it has been temporarily suspended for your protection.
+
+To restore access you MUST verify your identity within 24 hours. Call our security team on 07700 900123, or email security-northgate@mail-verify.example.com.
+
+A one-off verification fee of £250 is required. For your security this must be paid using gift cards, which our team will collect over the phone. Please have your online banking password and card PIN ready.
+
+If you do not respond within 24 hours your account will be closed permanently and the balance may be lost.
+
+Do not discuss this letter with branch staff, as this may delay the investigation.
+
+Northgate Bank Security Team
