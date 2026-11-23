@@ -6,29 +6,27 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Set of Material typography styles to start with
+/**
+ * Design calls for Atkinson Hyperlegible (UI, built for low-vision readers) and Source Serif 4 (letters).
+ * Swap these two families for the bundled fonts once they are added to res/font.
+ */
+val UiFamily: FontFamily = FontFamily.SansSerif
+val LetterFamily: FontFamily = FontFamily.Serif
+
+private fun ui(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f) =
+    TextStyle(fontFamily = UiFamily, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, letterSpacing = tracking.sp)
+
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
+    displayLarge = ui(72, 68, FontWeight.Bold, -2f),
+    displaySmall = ui(30, 35, FontWeight.Bold, -0.5f),
+    headlineSmall = ui(26, 30, FontWeight.Bold, -0.3f),
+    titleLarge = ui(20, 26, FontWeight.Bold),
+    titleMedium = ui(17, 23, FontWeight.Bold),
+    bodyLarge = ui(18, 26),
+    bodyMedium = ui(16, 23),
+    bodySmall = ui(14, 20),
+    labelLarge = ui(18, 22, FontWeight.Bold),
+    labelMedium = ui(14, 18, FontWeight.Bold),
 )
+
+val LetterBody = TextStyle(fontFamily = LetterFamily, fontSize = 16.sp, lineHeight = 27.sp, color = Ink)
