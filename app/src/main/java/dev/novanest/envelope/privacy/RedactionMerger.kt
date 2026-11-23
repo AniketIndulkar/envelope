@@ -33,13 +33,17 @@ object RedactionMerger {
 
         // 4. Rebuild the text left to right.
         val out = StringBuilder()
+        val placements = mutableListOf<Placement>()
         var cursor = 0
         for ((range, span) in claims) {
-            out.append(text, cursor, range.first).append(tokenFor.getValue(span).token)
+            out.append(text, cursor, range.first)
+            val token = tokenFor.getValue(span).token
+            placements += Placement(token, out.length, out.length + token.length, range.first, range.last + 1)
+            out.append(token)
             cursor = range.last + 1
         }
         out.append(text, cursor, text.length)
 
-        return Redaction(original = text, redacted = out.toString(), tokens = tokenFor.values.toList())
+        return Redaction(original = text, redacted = out.toString(), tokens = tokenFor.values.toList(), placements = placements)
     }
 }

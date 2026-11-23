@@ -50,4 +50,10 @@ class RedactionMergerTest {
 
     @Test fun valuesWithRegexCharactersAreLiteral() =
         assertEquals("Flat [ADDRESS_1]", merge("Flat 2 (rear), 14 Elm Rd.", address("2 (rear), 14 Elm Rd.")).redacted)
+
+    @Test fun exposesTokenPositionsInRedactedText() {
+        val r = merge("Dear Ann Lee, NI QQ123456C", name("Ann Lee"), ni("QQ123456C"))
+        assertEquals(listOf("[NAME_1]", "[NI_NUMBER_1]"), r.placements.map { r.redacted.substring(it.start, it.end) })
+        assertEquals(listOf("Ann Lee", "QQ123456C"), r.placements.map { r.original.substring(it.originalStart, it.originalEnd) })
+    }
 }
