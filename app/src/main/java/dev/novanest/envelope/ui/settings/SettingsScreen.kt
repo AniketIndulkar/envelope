@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,14 +38,12 @@ import dev.novanest.envelope.ui.components.EnvelopeCard
 import dev.novanest.envelope.ui.components.EnvelopeTopBar
 import dev.novanest.envelope.ui.theme.InkSoft
 import dev.novanest.envelope.ui.theme.Primary
-import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val container = (context.applicationContext as EnvelopeApp).container
     val prefs = remember { Prefs(context) }
-    val scope = rememberCoroutineScope()
     val nano by container.nanoStatus.state.collectAsStateWithLifecycle()
     var language by remember { mutableStateOf(prefs.language) }
     var forceRules by remember { mutableStateOf(prefs.forceRulesOnly) }
@@ -67,7 +64,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 if (nano == NanoState.Downloadable) {
-                    EnvelopeButton("Download Gemini Nano", { scope.launch { container.nanoStatus.download() } }, icon = Icons.Rounded.Download)
+                    EnvelopeButton("Download Gemini Nano", { container.downloadNano() }, icon = Icons.Rounded.Download)
                 }
             }
             EnvelopeCard {

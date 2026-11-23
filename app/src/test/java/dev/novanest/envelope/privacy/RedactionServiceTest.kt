@@ -63,4 +63,14 @@ class RedactionServiceTest {
         job.cancel(); job.join()
         assertNull(result)
     }
+
+    @Test fun entityLayerFailureIsReported() = runTest {
+        val o = RedactionService(TestRules.redactor, { _ -> throw IllegalStateException("model not downloaded") }, null).redact("Dear Ann, NI QQ123456C")
+        assertEquals(false, o.entityLayerWorked)
+        assertEquals("Dear Ann, NI [NI_NUMBER_1]", o.redaction.redacted)
+    }
+
+    @Test fun entityLayerSuccessIsReported() = runTest {
+        assertEquals(true, service(nano = null).redact("Dear Ann").entityLayerWorked)
+    }
 }

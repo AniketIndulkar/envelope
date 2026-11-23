@@ -1,6 +1,10 @@
 package dev.novanest.envelope
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
@@ -31,11 +35,31 @@ class AppContainer(
         bundledPatterns = context.assets.open("redaction_patterns.json").bufferedReader().readText(),
     )
     val textReader by lazy { TextReader(context) }
+
+    /** One ML Kit entity client for the app's lifetime (it holds a loaded model; one per letter leaked them). */
+    private val entityFinder by lazy { EntitySpanFinder() }
     val samples by lazy { SampleLetters(context.assets) }
     private val db by lazy { EnvelopeDb.create(context) }
 
-    val models: FirebaseModels? by lazy { if (firebaseReady) FirebaseModels(settings.cloudModelName) else null }
+    /** App-wide scope for work that must outlive a screen, like the Nano model download. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private var cachedModels: FirebaseModels? = null
+
+    /**
+     * Rebuilt when Remote Config's cloud_model_name changes, so a new value applies to the next letter rather
+     * than the next app launch (Remote Config activates after start-up).
+     */
+    val models: FirebaseModels?
+        get() {
+            if (!firebaseReady) return null
+            val name = settings.cloudModelName
+            return cachedModels?.takeIf { it.cloudModelName == name } ?: FirebaseModels(name).also { cachedModels = it }
+        }
+
     val nanoStatus by lazy { NanoStatus(models?.redactorModel) }
+
+    fun downloadNano() { appScope.launch { nanoStatus.download() } }
 
     val letters: LetterRepository? by lazy {
         if (!firebaseReady) null
@@ -51,7 +75,7 @@ class AppContainer(
         val patterns = settings.patternRedactor
         val nano = if (forceRulesOnly || m == null) null else NanoSpanFinder(m.redactor, prompts, settings.nanoChunkWords)
         return LetterPipeline(
-            redaction = RedactionService(patterns, EntitySpanFinder(), nano),
+            redaction = RedactionService(patterns, entityFinder, nano),
             guard = LeakGuard(patterns),
             quick = m?.quickCheck ?: notConfigured,
             explainer = m?.explainer ?: notConfigured,

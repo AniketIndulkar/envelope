@@ -36,5 +36,5 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     init { viewModelScope.launch { container.nanoStatus.refresh() } }
 
-    fun downloadNano() = viewModelScope.launch { container.nanoStatus.download() }
+    fun downloadNano() = container.downloadNano()
 }

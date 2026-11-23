@@ -56,7 +56,7 @@ class LetterPipeline(
         val restored = tokenised.mapText { text ->
             Restorer.restore(text, tokens).also { unknown += it.unknownTokens }.text
         }
-        return Explained(tokenised, restored, unknown.toList(), prompt, prepared.steps + StepRecord(Step.EXPLAIN, engine))
+        return Explained(tokenised, restored, unknown.toList(), prompt, prepared.outcome.redaction, prepared.steps + StepRecord(Step.EXPLAIN, engine))
     }
 
     /**

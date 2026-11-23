@@ -20,7 +20,7 @@ import kotlinx.coroutines.delay
  * - explainer: ONLY_IN_CLOUD — deep reasoning on redacted text.
  */
 @OptIn(PublicPreviewAPI::class)
-class FirebaseModels(cloudModelName: String) {
+class FirebaseModels(val cloudModelName: String) {
 
     private val ai = Firebase.ai(backend = GenerativeBackend.googleAI())
     private val json = generationConfig { responseMimeType = "application/json"; temperature = 0.2f }

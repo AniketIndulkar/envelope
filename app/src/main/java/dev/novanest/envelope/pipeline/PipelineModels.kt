@@ -2,6 +2,7 @@ package dev.novanest.envelope.pipeline
 
 import dev.novanest.envelope.ai.Engine
 import dev.novanest.envelope.ai.Explanation
+import dev.novanest.envelope.privacy.Redaction
 import dev.novanest.envelope.privacy.RedactionOutcome
 import kotlinx.serialization.Serializable
 
@@ -27,5 +28,7 @@ data class Explained(
     val unknownTokens: List<String>,
     /** Exact text sent to the cloud model, for the privacy receipt. */
     val sentText: String,
+    /** The redaction as it was when sent; the receipt shows this even if the user hides more words afterwards. */
+    val sentRedaction: Redaction,
     val steps: List<StepRecord>,
 )

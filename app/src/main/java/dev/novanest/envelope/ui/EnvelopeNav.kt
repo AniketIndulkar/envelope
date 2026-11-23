@@ -38,7 +38,7 @@ fun EnvelopeNav() {
             )
         }
         composable("review") {
-            ReviewScreen(ui, { nav.popBackStack() }, session::hideWord, session::showValue, session::setLanguage) {
+            ReviewScreen(ui, { nav.popBackStack() }, session::hideWord, session::showValue, session::setLanguage, onStartAgain = { nav.popBackStack("home", false) }) {
                 session.explain { nav.navigate("result") }
             }
         }
@@ -60,7 +60,7 @@ fun EnvelopeNav() {
             }
         }
         composable("receipt") {
-            ui.prepared?.let { ReceiptScreen(it.outcome.redaction, ui.steps) { nav.popBackStack() } }
+            ui.explained?.let { ReceiptScreen(it.sentRedaction, ui.steps) { nav.popBackStack() } }
         }
         composable("settings") { SettingsScreen { nav.popBackStack() } }
         composable("history/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->

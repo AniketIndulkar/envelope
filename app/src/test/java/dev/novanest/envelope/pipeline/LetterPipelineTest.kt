@@ -138,4 +138,12 @@ class LetterPipelineTest {
         assertEquals(null, pl.quickCheck(pl.prepare(LETTER)))
         assertTrue(quick.prompts.isEmpty())
     }
+
+    @Test fun explainedKeepsTheExactRedactionThatWasSent() = runTest {
+        val pl = pipeline()
+        val prepared = pl.prepare(LETTER)
+        val e = pl.explain(prepared, "English")
+        assertEquals(prepared.outcome.redaction, e.sentRedaction)
+        assertTrue(e.sentText.contains(e.sentRedaction.redacted))
+    }
 }

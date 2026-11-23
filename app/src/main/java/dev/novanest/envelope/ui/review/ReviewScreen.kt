@@ -88,6 +88,7 @@ fun ReviewScreen(
     onHideWord: (String) -> Unit,
     onShowValue: (String) -> Unit,
     onLanguage: (String) -> Unit,
+    onStartAgain: () -> Unit,
     onExplain: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -101,12 +102,21 @@ fun ReviewScreen(
                     else -> Unit
                 }
                 ui.error?.let { ErrorNotice(it, ui.leaks) }
+                if (ui.busy == null && ui.prepared == null && ui.error == null) {
+                    // Android closed the app in the background; the letter only ever lived in memory.
+                    Notice(Icons.Rounded.PhoneAndroid, "This letter was closed", "For your privacy, letters aren’t kept while Envelope is closed. Scan it again to carry on.", Tint, Deep, CardWhite, Primary)
+                    EnvelopeButton("Back to start", onStartAgain)
+                }
                 val prepared = ui.prepared
                 val display = ui.display
                 if (prepared != null && display != null) {
                     QuickCheckCard(ui)
                     val hidden = prepared.outcome.redaction.tokens.size
                     if (prepared.outcome.mode == RedactionMode.NANO_AND_RULES) NanoBanner(hidden) else RulesBanner()
+                    if (!prepared.outcome.entityLayerWorked) Text(
+                        "Address and phone detection is still getting ready on this phone. Check addresses yourself.",
+                        style = MaterialTheme.typography.bodyMedium, color = SoonInk, modifier = Modifier.padding(horizontal = 4.dp),
+                    )
                     Text(
                         if (display.suggestions.isNotEmpty()) "Highlighted words look personal. Tap to hide them."
                         else "Tap any word to hide it. Tap a blue block to show it.",

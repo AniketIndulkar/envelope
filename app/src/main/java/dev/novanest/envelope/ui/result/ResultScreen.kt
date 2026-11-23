@@ -99,7 +99,9 @@ fun ResultScreen(model: ResultModel, onBack: () -> Unit, onReceipt: (() -> Unit)
     val e = model.explanation
     val share = { context.startActivity(shareIntent(e.draftReply)) }
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
-        EnvelopeTopBar("What it means", onBack) { SquareIconButton(Icons.Rounded.Share, "Share reply", share) }
+        EnvelopeTopBar("What it means", onBack) {
+            if (e.draftReply.isNotBlank()) SquareIconButton(Icons.Rounded.Share, "Share reply", share)
+        }
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 32.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),

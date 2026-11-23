@@ -5,7 +5,7 @@ import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.appCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.auth.auth
 import com.google.firebase.remoteconfig.remoteConfig
@@ -28,7 +28,7 @@ class EnvelopeApp : Application() {
             return false
         }
         Firebase.appCheck.installAppCheckProviderFactory(
-            if (BuildConfig.DEBUG) DebugAppCheckProviderFactory.getInstance()
+            if (BuildConfig.DEBUG) debugAppCheckFactory() ?: PlayIntegrityAppCheckProviderFactory.getInstance()
             else PlayIntegrityAppCheckProviderFactory.getInstance()
         )
         Firebase.remoteConfig.apply {
@@ -42,6 +42,15 @@ class EnvelopeApp : Application() {
         Log.i(TAG, "Firebase ready: ${app.name}")
         return true
     }
+
+    /**
+     * The debug provider ships only in debug builds (debugImplementation), so release builds can't contain it.
+     * Loaded by name because main code is compiled for both.
+     */
+    private fun debugAppCheckFactory(): AppCheckProviderFactory? = runCatching {
+        Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
+            .getMethod("getInstance").invoke(null) as AppCheckProviderFactory
+    }.getOrNull()
 
     private companion object { const val TAG = "EnvelopeApp" }
 }

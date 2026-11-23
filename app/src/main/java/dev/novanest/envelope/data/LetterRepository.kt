@@ -3,7 +3,9 @@ package dev.novanest.envelope.data
 import dev.novanest.envelope.privacy.LeakGuard
 import dev.novanest.envelope.privacy.TokenEntry
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Cloud copy of letters (redacted only). */
 interface RemoteLetterStore {
@@ -36,4 +38,8 @@ class LetterRepository(
     }
 
     suspend fun tokens(id: String): List<TokenEntry> = tokenStore.get(id)
+
+    /** Waits for [id] to appear in history (the first snapshot can be an empty cache), but never forever. */
+    suspend fun find(id: String, timeoutMs: Long = 8_000): LetterRecord? =
+        withTimeoutOrNull(timeoutMs) { remote.observe().first { list -> list.any { it.id == id } }.first { it.id == id } }
 }

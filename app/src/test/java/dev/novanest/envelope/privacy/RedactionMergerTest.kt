@@ -56,4 +56,18 @@ class RedactionMergerTest {
         assertEquals(listOf("[NAME_1]", "[NI_NUMBER_1]"), r.placements.map { r.redacted.substring(it.start, it.end) })
         assertEquals(listOf("Ann Lee", "QQ123456C"), r.placements.map { r.original.substring(it.originalStart, it.originalEnd) })
     }
+
+    @Test fun shortBareNumbersFromModelsAreIgnored() {
+        val r = merge("Pay £1,000 by flat 1", PiiSpan("1", PiiType.REFERENCE, SpanSource.NANO))
+        assertEquals("Pay £1,000 by flat 1", r.redacted)
+    }
+
+    @Test fun shortPatternMatchesAreStillHonoured() =
+        assertEquals("ref [REFERENCE_1]", merge("ref 77", PiiSpan("77", PiiType.REFERENCE, SpanSource.PATTERN)).redacted)
+
+    @Test fun partlyOverlappingSpansMergeIntoOneBlock() {
+        val r = merge("Flat 2, 14 Elm Road, Leeds LS6", address("Flat 2, 14 Elm Road"), address("14 Elm Road, Leeds"))
+        assertEquals("[ADDRESS_1] LS6", r.redacted)
+        assertEquals("Flat 2, 14 Elm Road, Leeds", r.tokens.single().value)
+    }
 }

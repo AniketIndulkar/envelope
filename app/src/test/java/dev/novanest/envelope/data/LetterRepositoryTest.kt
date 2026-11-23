@@ -77,4 +77,13 @@ class LetterRepositoryTest {
         repo.save(record("none-new", createdAt = 4), listOf(ann))
         assertEquals(listOf("soon", "late", "none-new", "none-old"), repo.history().first().map { it.id })
     }
+
+    @Test fun findReturnsTheRecordOnceItArrives() = runTest {
+        repo.save(record("x"), listOf(ann))
+        assertEquals("x", repo.find("x", timeoutMs = 1_000)?.id)
+    }
+
+    @Test fun findGivesUpInsteadOfWaitingForever() = runTest {
+        assertEquals(null, repo.find("missing", timeoutMs = 1_000))
+    }
 }

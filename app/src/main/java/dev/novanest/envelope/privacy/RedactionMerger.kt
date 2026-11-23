@@ -6,18 +6,14 @@ object RedactionMerger {
     fun merge(text: String, spans: List<PiiSpan>): Redaction {
         // 1. One candidate per distinct value; the highest-priority source decides its type.
         val candidates = spans
-            .filter { it.text.isNotBlank() }
+            .filter { it.text.isNotBlank() && !tooVague(it) }
             .sortedBy { it.source.ordinal }
             .distinctBy { normalizeValue(it.text) }
 
         // 2. Longest values claim text first so "Margaret O'Neill" beats "Margaret".
         val claims = mutableListOf<Pair<IntRange, PiiSpan>>()
         for (span in candidates.sortedByDescending { normalizeValue(it.text).length }) {
-            valueRegex(span.text).findAll(text).forEach { m ->
-                if (claims.none { (r, _) -> r.first <= m.range.last && m.range.first <= r.last }) {
-                    claims += m.range to span
-                }
-            }
+            valueRegex(span.text).findAll(text).forEach { m -> claim(claims, m.range, span, text) }
         }
         claims.sortBy { it.first.first }
 
@@ -45,5 +41,35 @@ object RedactionMerger {
         out.append(text, cursor, text.length)
 
         return Redaction(original = text, redacted = out.toString(), tokens = tokenFor.values.toList(), placements = placements)
+    }
+
+    /**
+     * Model and entity layers sometimes tag a bare "1" or "12", which would also hit "£1,000" or a date. Short
+     * number-only values are only trusted from the deterministic rules.
+     */
+    private fun tooVague(span: PiiSpan): Boolean {
+        if (span.source == SpanSource.PATTERN) return false
+        val t = span.text.trim()
+        return t.length < 2 || (t.none(Char::isLetter) && t.count(Char::isDigit) < 4)
+    }
+
+    /**
+     * Adds [range] unless an existing claim already covers it. When two details partly overlap
+     * ("Flat 2, 14 Elm Road" and "14 Elm Road, Leeds") they become one block over their union,
+     * so no tail of either is left showing.
+     */
+    private fun claim(claims: MutableList<Pair<IntRange, PiiSpan>>, range: IntRange, span: PiiSpan, text: String) {
+        var union = range
+        var owner = span
+        while (true) {
+            val hit = claims.firstOrNull { (r, _) -> r.first <= union.last && union.first <= r.last } ?: break
+            val (r, s) = hit
+            if (r.first <= union.first && union.last <= r.last && union == range) return // already covered
+            claims.remove(hit)
+            owner = s
+            union = minOf(r.first, union.first)..maxOf(r.last, union.last)
+        }
+        val merged = if (union == range) span else PiiSpan(text.substring(union.first, union.last + 1), owner.type, owner.source)
+        claims += union to merged
     }
 }
