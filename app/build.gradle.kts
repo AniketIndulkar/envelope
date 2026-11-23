@@ -86,3 +86,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// Unit tests read bundled assets (redaction rules, sample letters) from disk.
+tasks.withType<Test>().configureEach {
+    inputs.dir("src/main/assets")
+}

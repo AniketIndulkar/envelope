@@ -1,0 +1,64 @@
+[
+  {
+    "type": "NI_NUMBER",
+    "regex": "\\b[A-Z]{2}\\s?\\d{2}\\s?\\d{2}\\s?\\d{2}\\s?[A-D]\\b",
+    "group": 0
+  },
+  {
+    "type": "ACCOUNT",
+    "regex": "(?i)sort\\s*code[^\\d]{0,20}(\\d{2}[-\\s]?\\d{2}[-\\s]?\\d{2})\\b",
+    "group": 1
+  },
+  {
+    "type": "ACCOUNT",
+    "regex": "(?i)account\\s*(?:no\\.?|number)[^\\d]{0,20}(\\d{8})\\b",
+    "group": 1
+  },
+  {
+    "type": "ACCOUNT",
+    "regex": "\\bGB\\d{2}\\s?[A-Z]{4}(?:\\s?\\d{4}){3}\\s?\\d{2}\\b",
+    "group": 0
+  },
+  {
+    "type": "ACCOUNT",
+    "regex": "\\b(?:\\d[ -]?){12,18}\\d\\b",
+    "group": 0,
+    "validator": "luhn"
+  },
+  {
+    "type": "POSTCODE",
+    "regex": "\\b[A-Z]{1,2}\\d[A-Z\\d]?\\s?\\d[A-Z]{2}\\b",
+    "group": 0
+  },
+  {
+    "type": "PHONE",
+    "regex": "(?:\\+44\\s?(?:\\(0\\)\\s?)?|\\b0)\\d(?:[\\s-]?\\d){8,9}\\b",
+    "group": 0
+  },
+  {
+    "type": "EMAIL",
+    "regex": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
+    "group": 0
+  },
+  {
+    "type": "REFERENCE",
+    "regex": "(?i)(?:\\bUTR\\b|unique taxpayer reference)[^\\d]{0,20}(\\d{5}\\s?\\d{5})\\b",
+    "group": 1
+  },
+  {
+    "type": "REFERENCE",
+    "regex": "\\b(\\d{3}\\s?\\d{3}\\s?\\d{4})\\b",
+    "group": 1,
+    "validator": "nhs_mod11"
+  },
+  {
+    "type": "DOB",
+    "regex": "(?i)(?:date of birth|\\bDOB\\b)[:\\s]{0,5}(\\d{1,2}[/.\\- ][0-9A-Za-z]{1,9}[/.\\- ]\\d{2,4})",
+    "group": 1
+  },
+  {
+    "type": "REFERENCE",
+    "regex": "(?i)(?:your reference|customer (?:number|ref(?:erence)?)|council tax (?:account|reference)(?: number)?)[^\\w]{0,5}([A-Z0-9]{6,14})\\b",
+    "group": 1
+  }
+]
