@@ -1,0 +1,31 @@
+package dev.novanest.envelope.pipeline
+
+import dev.novanest.envelope.ai.Engine
+import dev.novanest.envelope.ai.Explanation
+import dev.novanest.envelope.privacy.RedactionOutcome
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class Step { READ, FIND_DETAILS, QUICK_CHECK, EXPLAIN }
+
+/** Which engine handled which step — shown on the privacy receipt. */
+@Serializable
+data class StepRecord(val step: Step, val engine: Engine)
+
+sealed class PipelineError(message: String) : Exception(message) {
+    class NotALetter : PipelineError("That doesn't look like a letter — try a clearer photo")
+    class Offline : PipelineError("You're offline")
+    class Leak(val leaks: List<String>) : PipelineError("Personal details still present; nothing was sent")
+    class BadModelOutput(val step: Step) : PipelineError("The AI gave an answer we couldn't read")
+}
+
+data class Prepared(val outcome: RedactionOutcome, val steps: List<StepRecord>)
+
+data class Explained(
+    val tokenised: Explanation,
+    val restored: Explanation,
+    val unknownTokens: List<String>,
+    /** Exact text sent to the cloud model, for the privacy receipt. */
+    val sentText: String,
+    val steps: List<StepRecord>,
+)
