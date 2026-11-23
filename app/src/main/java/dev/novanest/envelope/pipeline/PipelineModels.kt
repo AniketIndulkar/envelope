@@ -13,9 +13,10 @@ enum class Step { READ, FIND_DETAILS, QUICK_CHECK, EXPLAIN }
 @Serializable
 data class StepRecord(val step: Step, val engine: Engine)
 
-sealed class PipelineError(message: String) : Exception(message) {
+sealed class PipelineError(message: String, cause: Throwable? = null) : Exception(message, cause) {
     class NotALetter : PipelineError("That doesn't look like a letter — try a clearer photo")
     class Offline : PipelineError("You're offline")
+    class Busy(cause: Throwable? = null) : PipelineError("The AI service is busy or has reached its limit for now. Nothing was sent. Try again in a little while.", cause)
     class Leak(val leaks: List<String>) : PipelineError("Personal details still present; nothing was sent")
     class BadModelOutput(val step: Step) : PipelineError("The AI gave an answer we couldn't read")
 }

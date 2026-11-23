@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <defaultsMap>
-    <entry><key>cloud_model_name</key><value>gemini-3.8-flash</value></entry>
+    <entry><key>cloud_model_name</key><value>gemini-3.5-flash-lite</value></entry>
     <entry><key>redaction_patterns_json</key><value></value></entry>
     <entry><key>prompt_redact</key><value></value></entry>
     <entry><key>prompt_quickcheck</key><value></value></entry>

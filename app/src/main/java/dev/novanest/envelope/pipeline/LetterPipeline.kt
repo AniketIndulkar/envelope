@@ -15,6 +15,7 @@ import dev.novanest.envelope.privacy.RedactionService
 import dev.novanest.envelope.privacy.Restorer
 import dev.novanest.envelope.privacy.Redaction
 import java.io.IOException
+import com.google.firebase.ai.type.QuotaExceededException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,8 +87,14 @@ class LetterPipeline(
         throw PipelineError.BadModelOutput(step)
     }
 
-    private fun mapFailure(e: Exception): Exception =
-        if (generateSequence<Throwable>(e) { it.cause }.any { it is IOException }) PipelineError.Offline() else e
+    private fun mapFailure(e: Exception): Exception {
+        val chain = generateSequence<Throwable>(e) { it.cause }.toList()
+        return when {
+            chain.any { it is QuotaExceededException } -> PipelineError.Busy(e) // e.g. free tier: 5 requests a minute
+            chain.any { it is IOException } -> PipelineError.Offline()
+            else -> e
+        }
+    }
 
     private fun Explanation.mapText(f: (String) -> String) = copy(
         summary = f(summary),

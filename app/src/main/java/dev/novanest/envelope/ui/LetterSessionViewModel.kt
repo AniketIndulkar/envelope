@@ -5,7 +5,9 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.novanest.envelope.BuildConfig
 import dev.novanest.envelope.EnvelopeApp
+import com.google.firebase.ai.type.FirebaseAIException
 import dev.novanest.envelope.ai.Engine
 import dev.novanest.envelope.ai.QuickCheck
 import dev.novanest.envelope.data.LetterRecord
@@ -209,6 +211,9 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
     /** Logs the error type only: exception messages can contain letter text. */
     private fun fail(gen: Int, e: Throwable) {
         Log.w(TAG, "Letter failed (${e.javaClass.simpleName})")
+        // Firebase AI errors carry the server's reason (quota, model name, API not enabled), never letter text.
+        if (BuildConfig.DEBUG) generateSequence(e) { it.cause }.filterIsInstance<FirebaseAIException>().firstOrNull()
+            ?.let { Log.w(TAG, "Firebase AI: ${it.message?.take(500)}") }
         update(gen) {
             it.copy(
                 busy = null,

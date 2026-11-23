@@ -146,4 +146,13 @@ class LetterPipelineTest {
         assertEquals(prepared.outcome.redaction, e.sentRedaction)
         assertTrue(e.sentText.contains(e.sentRedaction.redacted))
     }
+
+    @Test fun quotaLimitIsATypedBusyError() = runTest {
+        // The SDK's constructor is Kotlin-internal; build the real exception type reflectively.
+        val quota = com.google.firebase.ai.type.QuotaExceededException::class.java
+            .getConstructor(String::class.java, Throwable::class.java).newInstance("limit: 5 per minute", null)
+        val pl = pipeline(explainer = { _ -> throw quota })
+        val prepared = pl.prepare(LETTER)
+        assertThrows(PipelineError.Busy::class.java) { runBlocking { pl.explain(prepared, "English") } }
+    }
 }

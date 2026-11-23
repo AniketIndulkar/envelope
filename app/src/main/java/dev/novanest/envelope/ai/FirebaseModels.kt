@@ -10,8 +10,15 @@ import com.google.firebase.ai.type.FirebaseAIOnDeviceUnknownException
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.PublicPreviewAPI
 import com.google.firebase.ai.type.ServerException
+import com.google.firebase.ai.type.RequestOptions
+import com.google.firebase.ai.type.RequestTimeoutException
 import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.delay
+import android.os.SystemClock
+import android.util.Log
+import dev.novanest.envelope.BuildConfig
+import com.google.firebase.ai.type.ThinkingLevel
+import com.google.firebase.ai.type.thinkingConfig
 
 /**
  * The three hybrid models. Each step uses the inference mode its privacy needs:
@@ -34,12 +41,19 @@ class FirebaseModels(val cloudModelName: String) {
     private val quickCheckModel: GenerativeModel = ai.generativeModel(
         modelName = cloudModelName,
         generationConfig = json,
+        requestOptions = CLOUD_TIMEOUT,
         onDeviceConfig = OnDeviceConfig(mode = InferenceMode.PREFER_ON_DEVICE, maxOutputTokens = 200, temperature = 0.1f),
     )
 
     private val explainerModel: GenerativeModel = ai.generativeModel(
         modelName = cloudModelName,
-        generationConfig = generationConfig { responseMimeType = "application/json"; temperature = 0.3f },
+        generationConfig = generationConfig {
+            responseMimeType = "application/json"
+            temperature = 0.3f
+            // A plain-English explanation doesn't need long reasoning; low thinking cuts seconds off every answer.
+            thinkingConfig = thinkingConfig { thinkingLevel = ThinkingLevel.LOW }
+        },
+        requestOptions = CLOUD_TIMEOUT,
         onDeviceConfig = OnDeviceConfig(mode = InferenceMode.ONLY_IN_CLOUD),
     )
 
@@ -48,25 +62,35 @@ class FirebaseModels(val cloudModelName: String) {
     val explainer: TextModel = adapt(explainerModel)
 
     private fun adapt(model: GenerativeModel) = TextModel { prompt ->
+        val started = SystemClock.elapsedRealtime()
         val response = withRetry { model.generateContent(prompt) }
+        if (BuildConfig.DEBUG) Log.d("FirebaseModels", "${response.inferenceSource} reply in ${SystemClock.elapsedRealtime() - started} ms, " +
+            "tokens in/out/thinking=${response.usageMetadata?.promptTokenCount}/${response.usageMetadata?.candidatesTokenCount}/${response.usageMetadata?.thoughtsTokenCount}")
         ModelReply(
             text = response.text.orEmpty(),
             engine = if (response.inferenceSource == InferenceSource.ON_DEVICE) Engine.ON_DEVICE else Engine.IN_CLOUD,
         )
     }
 
-    /** Nano reports a busy/quota state through unknown on-device errors; the cloud through ServerException. */
+    /**
+     * Nano reports a busy state through unknown on-device errors; the cloud through ServerException, and a stalled
+     * connection through RequestTimeoutException (we cap cloud calls at 30 s instead of the SDK's 180 s default).
+     */
     private suspend fun <T> withRetry(block: suspend () -> T): T {
         var wait = 500L
-        repeat(2) {
+        repeat(2) { attempt ->
             try {
                 return block()
-            } catch (e: FirebaseAIOnDeviceUnknownException) {
-                delay(wait); wait *= 2
-            } catch (e: ServerException) {
+            } catch (e: Exception) {
+                if (e !is FirebaseAIOnDeviceUnknownException && e !is ServerException && e !is RequestTimeoutException) throw e
+                if (BuildConfig.DEBUG) Log.d("FirebaseModels", "Attempt ${attempt + 1} failed (${e.javaClass.simpleName}); retrying")
                 delay(wait); wait *= 2
             }
         }
         return block()
+    }
+
+    private companion object {
+        val CLOUD_TIMEOUT = RequestOptions(timeoutInMillis = 30_000)
     }
 }

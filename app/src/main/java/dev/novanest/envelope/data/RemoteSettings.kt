@@ -20,7 +20,7 @@ class RemoteSettings(private val rc: FirebaseRemoteConfig?, private val bundledP
     private fun prompt(key: String) = rc?.getString(key)?.takeIf { it.contains("{text}") }
 
     companion object {
-        const val DEFAULT_MODEL = "gemini-3.8-flash"
+        const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
         /** Nano's ~256-token output budget, not its 4000-token input, is the limit: keep chunks small enough that the span list fits. */
         const val DEFAULT_CHUNK_WORDS = 400
