@@ -34,7 +34,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val samples: List<SampleLetter> get() = container.samples.all
     val firebaseReady = container.firebaseReady
 
-    init { viewModelScope.launch { container.nanoStatus.refresh() } }
+    /**
+     * The SDK never downloads Nano by itself. On a supported phone without the model we start the download straight
+     * away (in an app-wide scope), so redaction is private by the time the first letter is scanned.
+     */
+    init {
+        viewModelScope.launch {
+            container.nanoStatus.refresh()
+            if (container.nanoStatus.state.value == NanoState.Downloadable) container.downloadNano()
+        }
+    }
 
     fun downloadNano() = container.downloadNano()
 }

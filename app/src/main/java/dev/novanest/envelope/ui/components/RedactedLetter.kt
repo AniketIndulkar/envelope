@@ -13,7 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -22,7 +25,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -31,7 +33,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.novanest.envelope.privacy.Redaction
@@ -57,19 +58,52 @@ fun RedactedLetter(
     onHideWord: ((String) -> Unit)? = null,
     onShowValue: ((String) -> Unit)? = null,
 ) {
-    val text = remember(display, onHideWord != null, onShowValue != null) { annotate(display, onHideWord, onShowValue) }
+    val text = remember(display, onShowValue != null) { annotate(display, onShowValue) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val hideWord by rememberUpdatedState(onHideWord)
     PaperSheet(modifier, flat) {
         Text(
             text = text,
             style = LetterBody,
             onTextLayout = { layout = it },
-            modifier = Modifier.drawBehind {
-                layout?.let { l ->
-                    display.suggestions.forEach { drawSuggestion(l, it.first, it.last + 1) }
-                    display.chips.forEach { drawChip(l, it.start, it.end) }
+            modifier = Modifier
+                // Hatch and suggestion shapes are measured once per layout and reused for every frame (scrolling).
+                .drawWithCache {
+                    val l = layout
+                    val chipRects = l?.let { display.chips.flatMap { c -> lineRects(it, c.start, c.end, 2.dp.toPx()) } }.orEmpty()
+                    val hintRects = l?.let { display.suggestions.flatMap { r -> lineRects(it, r.first, r.last + 1, 3.dp.toPx()) } }.orEmpty()
+                    val radius = CornerRadius(6.dp.toPx())
+                    val chipPaths = chipRects.map { Path().apply { addRoundRect(RoundRect(it, radius)) } }
+                    val hatchStep = 6.dp.toPx(); val hatchWidth = 2.dp.toPx(); val dashWidth = 2.dp.toPx()
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
+                    onDrawBehind {
+                        hintRects.forEach { r ->
+                            drawRect(SoonBg, r.topLeft, Size(r.width, r.height))
+                            drawLine(SoonLine, Offset(r.left, r.bottom), Offset(r.right, r.bottom), strokeWidth = dashWidth, pathEffect = dash)
+                        }
+                        chipRects.forEachIndexed { i, r ->
+                            drawRoundRect(Primary, r.topLeft, Size(r.width, r.height), radius)
+                            clipPath(chipPaths[i]) {
+                                var x = r.left - r.height
+                                while (x < r.right) {
+                                    drawLine(HatchLine, Offset(x, r.bottom), Offset(x + r.height, r.top), strokeWidth = hatchWidth)
+                                    x += hatchStep
+                                }
+                            }
+                        }
+                    }
                 }
-            },
+                // One tap handler for the whole letter instead of hundreds of per-word links: cheaper to lay out and scroll.
+                .then(
+                    if (onHideWord == null) Modifier else Modifier.pointerInput(display) {
+                        detectTapGestures { pos ->
+                            val l = layout ?: return@detectTapGestures
+                            val offset = l.getOffsetForPosition(pos)
+                            if (display.chips.any { offset in it.start until it.end }) return@detectTapGestures
+                            display.words.firstOrNull { offset in it }?.let { hideWord?.invoke(display.tapTarget(it)) }
+                        }
+                    }
+                ),
         )
     }
 }
@@ -102,7 +136,10 @@ fun PaperSheet(modifier: Modifier = Modifier, flat: Boolean = false, content: @C
 private val chipStyle = SpanStyle(fontFamily = UiFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = CardWhite)
 private val plainLink = TextLinkStyles(SpanStyle())
 
-private fun annotate(d: LetterDisplay, onHideWord: ((String) -> Unit)?, onShowValue: ((String) -> Unit)?): AnnotatedString =
+private val HatchLine = Color.White.copy(alpha = 0.16f)
+
+/** Blocks stay real links (few per letter) so TalkBack users can reveal them; plain words are handled by one tap detector. */
+private fun annotate(d: LetterDisplay, onShowValue: ((String) -> Unit)?): AnnotatedString =
     buildAnnotatedString {
         append(d.text)
         d.chips.forEach { chip ->
@@ -111,43 +148,15 @@ private fun annotate(d: LetterDisplay, onHideWord: ((String) -> Unit)?, onShowVa
                 addLink(LinkAnnotation.Clickable("show:${chip.start}", plainLink) { onShowValue(chip.value) }, chip.start, chip.end)
             }
         }
-        if (onHideWord != null) d.words.forEach { range ->
-            val target = d.tapTarget(range)
-            addLink(LinkAnnotation.Clickable("hide:${range.first}", plainLink) { onHideWord(target) }, range.first, range.last + 1)
-        }
     }
 
-private fun DrawScope.lineRects(l: TextLayoutResult, start: Int, end: Int, pad: Dp): List<Rect> {
+private fun lineRects(l: TextLayoutResult, start: Int, end: Int, pad: Float): List<Rect> {
     if (end <= start || end > l.layoutInput.text.length) return emptyList()
     val first = l.getLineForOffset(start)
     val last = l.getLineForOffset(end - 1)
     return (first..last).map { line ->
         val left = if (line == first) l.getHorizontalPosition(start, true) else l.getLineLeft(line)
         val right = if (line == last) l.getHorizontalPosition(end, true) else l.getLineRight(line)
-        Rect(left, l.getLineTop(line) + pad.toPx(), right, l.getLineBottom(line) - pad.toPx())
-    }
-}
-
-private fun DrawScope.drawChip(l: TextLayoutResult, start: Int, end: Int) {
-    val radius = CornerRadius(6.dp.toPx())
-    lineRects(l, start, end, 2.dp).forEach { rect ->
-        drawRoundRect(Primary, rect.topLeft, Size(rect.width, rect.height), radius)
-        clipPath(Path().apply { addRoundRect(RoundRect(rect, radius)) }) {
-            var x = rect.left - rect.height
-            while (x < rect.right) {
-                drawLine(Color.White.copy(alpha = 0.16f), Offset(x, rect.bottom), Offset(x + rect.height, rect.top), strokeWidth = 2.dp.toPx())
-                x += 6.dp.toPx()
-            }
-        }
-    }
-}
-
-private fun DrawScope.drawSuggestion(l: TextLayoutResult, start: Int, end: Int) {
-    lineRects(l, start, end, 3.dp).forEach { rect ->
-        drawRect(SoonBg, rect.topLeft, Size(rect.width, rect.height))
-        drawLine(
-            SoonLine, Offset(rect.left, rect.bottom), Offset(rect.right, rect.bottom),
-            strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f)),
-        )
+        Rect(left, l.getLineTop(line) + pad, right, l.getLineBottom(line) - pad)
     }
 }

@@ -20,6 +20,8 @@ import dev.novanest.envelope.pipeline.StepRecord
 import dev.novanest.envelope.privacy.PiiSpan
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.novanest.envelope.privacy.RedactionMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,9 +82,10 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startFromSample(sample: SampleLetter) = start {
         // Real OCR on the rendered sample, so the demo shows the actual on-device read; text file only as a fallback.
-        runCatching { container.textReader.read(container.samples.image(sample)) }
-            .getOrNull()?.takeIf { it.length > 40 }
-            ?: getApplication<Application>().assets.open(sample.textAsset).bufferedReader().readText()
+        // Image decode and asset reads happen on the IO dispatcher, never the main thread.
+        val image = runCatching { withContext(Dispatchers.IO) { container.samples.image(sample) } }.getOrNull()
+        image?.let { runCatching { container.textReader.read(it) }.getOrNull() }?.takeIf { it.length > 40 }
+            ?: withContext(Dispatchers.IO) { getApplication<Application>().assets.open(sample.textAsset).bufferedReader().readText() }
     }
 
     private fun start(read: suspend () -> String) {

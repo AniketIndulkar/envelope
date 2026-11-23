@@ -1,6 +1,8 @@
 package dev.novanest.envelope
 
 import android.app.Application
+import android.os.StrictMode
+import dev.novanest.envelope.ocr.prefetchScanner
 import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -17,8 +19,14 @@ class EnvelopeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) {
+            // Debug builds log any disk or network work on the main thread (a common cause of jank).
+            StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build())
+            StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().penaltyLog().build())
+        }
         val firebaseReady = initFirebase()
         container = AppContainer(this, firebaseReady)
+        prefetchScanner(this)
     }
 
     /** Returns false when no google-services.json was bundled; AI and cloud features then show "not configured". */

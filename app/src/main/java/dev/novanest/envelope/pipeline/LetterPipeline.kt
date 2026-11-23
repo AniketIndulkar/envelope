@@ -15,6 +15,9 @@ import dev.novanest.envelope.privacy.RedactionService
 import dev.novanest.envelope.privacy.Restorer
 import dev.novanest.envelope.privacy.Redaction
 import java.io.IOException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 /**
@@ -28,11 +31,13 @@ class LetterPipeline(
     private val explainer: TextModel,
     private val prompts: Prompts = Prompts(),
     private val today: () -> LocalDate = LocalDate::now,
+    /** Redaction is regex-heavy; keep it off the main thread so the screen never stalls. */
+    private val compute: CoroutineDispatcher = Dispatchers.Default,
 ) {
 
     suspend fun prepare(ocrText: String, manual: List<PiiSpan> = emptyList(), ignore: Set<String> = emptySet()): Prepared {
         if (ocrText.trim().length < MIN_LETTER_CHARS) throw PipelineError.NotALetter()
-        val outcome = redaction.redact(ocrText, manual, ignore)
+        val outcome = withContext(compute) { redaction.redact(ocrText, manual, ignore) }
         val findEngine = if (outcome.mode == RedactionMode.NANO_AND_RULES) Engine.ON_DEVICE else Engine.RULES
         return Prepared(outcome, listOf(StepRecord(Step.READ, Engine.ON_DEVICE), StepRecord(Step.FIND_DETAILS, findEngine)))
     }
