@@ -2,6 +2,7 @@ package dev.novanest.envelope.privacy
 
 import android.util.Log
 
+@kotlinx.serialization.Serializable
 enum class RedactionMode { NANO_AND_RULES, RULES_ONLY }
 
 data class RedactionOutcome(val redaction: Redaction, val mode: RedactionMode)

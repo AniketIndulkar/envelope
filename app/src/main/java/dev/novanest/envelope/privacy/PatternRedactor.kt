@@ -12,6 +12,8 @@ class PatternRedactor(rules: List<PatternRule>) {
 
     private val compiled = rules.map { it to Regex(it.regex) }
 
+    val ruleCount: Int get() = compiled.size
+
     fun find(text: String): List<PiiSpan> = compiled.flatMap { (rule, regex) ->
         regex.findAll(text).mapNotNull { m ->
             val value = m.groups[rule.group]?.value?.trim().orEmpty()
