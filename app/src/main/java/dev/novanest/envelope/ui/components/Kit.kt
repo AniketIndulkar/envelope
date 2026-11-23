@@ -148,7 +148,7 @@ fun EnvelopeButton(
             .height(height)
             .then(if (kind == ButtonKind.Primary) Modifier.shadow(10.dp, shape, ambientColor = Primary, spotColor = Primary) else Modifier)
             .clip(shape)
-            .background(if (enabled) bg else bg.copy(alpha = 0.5f))
+            .background(if (enabled) bg else if (kind == ButtonKind.Primary) Color(0xFFA9B6DD) else Color(0xFFF2F4F7))
             .then(if (kind == ButtonKind.Outline) Modifier.border(1.5.dp, Color(0xFFD0D8F0), shape) else Modifier)
             .clickable(enabled = enabled && !loading, onClick = onClick),
         horizontalArrangement = Arrangement.Center,

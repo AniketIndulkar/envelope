@@ -16,8 +16,14 @@ data class LetterDisplay(
 
     data class Chip(val start: Int, val end: Int, val token: String, val value: String)
 
+    /** What tapping [word] hides: the whole suggestion it sits in (e.g. a full name), else just the word. */
+    fun tapTarget(word: IntRange): String {
+        val range = suggestions.firstOrNull { word.first >= it.first && word.last <= it.last } ?: word
+        return text.substring(range.first, range.last + 1)
+    }
+
     companion object {
-        private const val PAD = " " // thin space: room for the hatch around the label
+        private const val PAD = "\u202F" // narrow no-break space: room for the hatch, never a line break
         private val WORD = Regex("[\\p{L}\\p{N}][\\p{L}\\p{N}'’\\-]*")
         private val TOKEN = Regex("\\[([A-Z_]+)_(\\d+)]")
 
@@ -48,7 +54,7 @@ data class LetterDisplay(
             for (p in r.placements) {
                 plain(p.start)
                 val start = sb.length
-                sb.append(PAD).append(label(p.token)).append(PAD)
+                sb.append(PAD).append(label(p.token).replace(' ', '\u00A0')).append(PAD)
                 chips += Chip(start, sb.length, p.token, values[p.token].orEmpty())
                 cursor = p.end
             }
@@ -69,10 +75,14 @@ data class LetterDisplay(
             return found.filter { r -> chips.none { it.start <= r.last && r.first < it.end } }.sortedBy { it.first }.toList()
         }
 
-        /** A word the user taps to hide: capitalised words are most likely names; anything with digits a reference. */
+        /** What the user taps to hide: "14 Elm Road" is an address, "RGH2287731" a reference, anything else a name. */
         fun manualSpan(word: String) = PiiSpan(
             text = word,
-            type = if (word.any(Char::isDigit)) PiiType.REFERENCE else PiiType.NAME,
+            type = when {
+                word.any(Char::isDigit) && word.trim().contains(' ') -> PiiType.ADDRESS
+                word.any(Char::isDigit) -> PiiType.REFERENCE
+                else -> PiiType.NAME
+            },
             source = SpanSource.MANUAL,
         )
     }

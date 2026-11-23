@@ -112,8 +112,8 @@ private fun annotate(d: LetterDisplay, onHideWord: ((String) -> Unit)?, onShowVa
             }
         }
         if (onHideWord != null) d.words.forEach { range ->
-            val word = d.text.substring(range.first, range.last + 1)
-            addLink(LinkAnnotation.Clickable("hide:${range.first}", plainLink) { onHideWord(word) }, range.first, range.last + 1)
+            val target = d.tapTarget(range)
+            addLink(LinkAnnotation.Clickable("hide:${range.first}", plainLink) { onHideWord(target) }, range.first, range.last + 1)
         }
     }
 
