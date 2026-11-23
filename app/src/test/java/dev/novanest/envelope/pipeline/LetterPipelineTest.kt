@@ -155,4 +155,12 @@ class LetterPipelineTest {
         val prepared = pl.prepare(LETTER)
         assertThrows(PipelineError.Busy::class.java) { runBlocking { pl.explain(prepared, "English") } }
     }
+
+    @Test fun overloadedServerIsATypedBusyError() = runTest {
+        val overloaded = com.google.firebase.ai.type.ServerException::class.java
+            .getConstructor(String::class.java, Throwable::class.java).newInstance("model is experiencing high demand", null)
+        val pl = pipeline(explainer = { _ -> throw overloaded })
+        val prepared = pl.prepare(LETTER)
+        assertThrows(PipelineError.Busy::class.java) { runBlocking { pl.explain(prepared, "English") } }
+    }
 }

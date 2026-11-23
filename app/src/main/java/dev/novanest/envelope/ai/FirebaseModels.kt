@@ -77,8 +77,9 @@ class FirebaseModels(val cloudModelName: String) {
      * connection through RequestTimeoutException (we cap cloud calls at 30 s instead of the SDK's 180 s default).
      */
     private suspend fun <T> withRetry(block: suspend () -> T): T {
-        var wait = 500L
-        repeat(2) { attempt ->
+        // Overload spikes last seconds, not milliseconds: back off 1 s, 2 s, 4 s before giving up (~7 s in all).
+        var wait = 1_000L
+        repeat(3) { attempt ->
             try {
                 return block()
             } catch (e: Exception) {
