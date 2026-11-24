@@ -112,7 +112,7 @@ fun ReviewScreen(
                 if (prepared != null && display != null) {
                     QuickCheckCard(ui)
                     val hidden = prepared.outcome.redaction.tokens.size
-                    if (prepared.outcome.mode == RedactionMode.NANO_AND_RULES) NanoBanner(hidden) else RulesBanner()
+                    if (prepared.outcome.mode == RedactionMode.NANO_AND_RULES) NanoBanner(hidden) else RulesBanner(ui.nanoOnPhone)
                     if (!prepared.outcome.entityLayerWorked) Text(
                         "Address and phone detection is still getting ready on this phone. Check addresses yourself.",
                         style = MaterialTheme.typography.bodyMedium, color = SoonInk, modifier = Modifier.padding(horizontal = 4.dp),
@@ -208,9 +208,11 @@ private fun NanoBanner(hidden: Int) {
     }
 }
 
+/** [nanoOnPhone]: Nano is installed but couldn't check this letter, which needs different words than "can't run". */
 @Composable
-private fun RulesBanner() = Notice(
-    Icons.Rounded.WarningAmber, "This phone can’t run Gemini Nano",
+private fun RulesBanner(nanoOnPhone: Boolean) = Notice(
+    Icons.Rounded.WarningAmber,
+    if (nanoOnPhone) "Gemini Nano couldn’t check this letter" else "This phone can’t run Gemini Nano",
     "Numbers are hidden. Names and addresses may still show, so tap them to hide them.",
     SoonBg, SoonInk, SoonTile,
 )

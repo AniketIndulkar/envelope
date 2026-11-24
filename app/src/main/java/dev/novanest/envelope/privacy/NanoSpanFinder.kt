@@ -41,16 +41,24 @@ class NanoSpanFinder(
     }
 
     /**
-     * One chunk failing (bad JSON, Nano busy) gets one more try. If that fails too, throw so the whole
-     * letter drops to rules-only mode: the banner must never claim Nano checked text it didn't.
+     * One chunk failing (bad or truncated JSON, Nano busy) gets one more try, then is split in two: Nano's answer
+     * is capped at ~256 tokens, so a dense chunk can overflow where each half fits. If that fails too, throw so the
+     * whole letter drops to rules-only mode: the banner must never claim Nano checked text it didn't.
      */
     private suspend fun retryOnce(index: Int, chunk: String, first: Exception): List<PiiSpan> {
         Log.w(TAG, "Chunk $index failed (${first.javaClass.simpleName}), retrying once")
-        return try {
-            findInChunk(chunk)
-        } catch (e: Exception) {
-            e.addSuppressed(first)
+        try {
+            return findInChunk(chunk)
+        } catch (e: CancellationException) {
             throw e
+        } catch (e: NanoOffDeviceException) {
+            throw e
+        } catch (e: Exception) {
+            val words = chunk.split(Regex("\\s+")).count { it.isNotEmpty() }
+            val halves = Chunker.chunk(chunk, maxOf(1, (words + 1) / 2))
+            if (halves.size < 2) { e.addSuppressed(first); throw e }
+            Log.w(TAG, "Chunk $index failed again (${e.javaClass.simpleName}); trying ${halves.size} smaller pieces")
+            return halves.flatMap { findInChunk(it) }
         }
     }
 

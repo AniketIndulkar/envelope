@@ -34,10 +34,11 @@ class NanoSpanFinderTest {
         assertEquals(2, calls())
     }
 
-    @Test fun throwsWhenRetryAlsoFails() = runTest {
-        val (model, calls) = scripted({ throw IllegalStateException("busy") }, { throw IllegalStateException("busy") })
+    @Test fun throwsWhenRetryAndSmallerPiecesAlsoFail() = runTest {
+        val busy: () -> ModelReply = { throw IllegalStateException("busy") }
+        val (model, calls) = scripted(busy, busy, busy, busy)
         assertThrows(IllegalStateException::class.java) { kotlinx.coroutines.runBlocking { finder(model).find("Dear Ann Lee") } }
-        assertEquals(2, calls())
+        assertEquals(3, calls()) // whole chunk, retry, then the first half fails and the letter goes rules-only
     }
 
     @Test fun offDeviceReplyThrowsWithoutRetry() = runTest {
@@ -54,5 +55,17 @@ class NanoSpanFinderTest {
         runCurrent()
         job.cancel(); job.join()
         assertEquals(1, calls)
+    }
+
+    @Test fun aChunkThatKeepsFailingIsRetriedAsTwoHalves() = runTest {
+        // Nano's output budget is small: a dense chunk truncates its JSON twice, but each half fits.
+        val model = TextModel { prompt ->
+            val letter = prompt.substringAfterLast("Letter:")
+            if (letter.contains("Ann Lee") && letter.contains("Bob Ray")) ModelReply("""{"entities":[{"text":"Ann""", Engine.ON_DEVICE)
+            else if (letter.contains("Ann Lee")) ModelReply("""{"entities":[{"text":"Ann Lee","type":"NAME"}]}""", Engine.ON_DEVICE)
+            else ModelReply("""{"entities":[{"text":"Bob Ray","type":"NAME"}]}""", Engine.ON_DEVICE)
+        }
+        val spans = finder(model).find("Dear Ann Lee, thanks.\n\nRegards, Bob Ray.")
+        assertEquals(setOf("Ann Lee", "Bob Ray"), spans.map { it.text }.toSet())
     }
 }

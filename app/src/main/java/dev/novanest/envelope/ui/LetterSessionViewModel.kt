@@ -50,6 +50,8 @@ data class SessionUi(
     val leaks: List<String> = emptyList(),
     val language: String = "English",
     val notConfigured: Boolean = false,
+    /** Nano is ready on this phone (it may still fail on a particular letter). */
+    val nanoOnPhone: Boolean = false,
 ) {
     /** Every step in order, with the quick check slotted in after finding details — for the receipt and history. */
     val steps: List<StepRecord>
@@ -97,7 +99,8 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
         manual.clear(); ignore.clear()
         letterId = UUID.randomUUID().toString()
         pipeline = container.newPipeline(prefs.forceRulesOnly)
-        _ui.value = SessionUi(busy = Busy.READING, language = prefs.language, notConfigured = !container.firebaseReady)
+        _ui.value = SessionUi(busy = Busy.READING, language = prefs.language, notConfigured = !container.firebaseReady,
+            nanoOnPhone = container.nanoStatus.isReady && !prefs.forceRulesOnly)
         forLetter { gen ->
             ocrText = Reflow.lines(read())
             update(gen) { it.copy(busy = Busy.FINDING) }
