@@ -1,24 +1,29 @@
 package dev.novanest.envelope.ui.review
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.CurrencyPound
 import androidx.compose.material.icons.rounded.Description
@@ -26,61 +31,86 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.novanest.envelope.ai.Engine
-import dev.novanest.envelope.ai.QuickCheck
 import dev.novanest.envelope.data.Prefs
 import dev.novanest.envelope.privacy.RedactionMode
 import dev.novanest.envelope.ui.Busy
 import dev.novanest.envelope.ui.Dates
+import dev.novanest.envelope.ui.LetterDisplay
 import dev.novanest.envelope.ui.SessionUi
-import dev.novanest.envelope.ui.components.EnvelopeButton
-import dev.novanest.envelope.ui.components.EnvelopeCard
-import dev.novanest.envelope.ui.components.EnvelopeTopBar
-import dev.novanest.envelope.ui.components.IconTile
-import dev.novanest.envelope.ui.components.LoadingCard
-import dev.novanest.envelope.ui.components.Notice
-import dev.novanest.envelope.ui.components.Pill
-import dev.novanest.envelope.ui.components.RedactedLetter
-import dev.novanest.envelope.ui.components.deadlineColors
-import dev.novanest.envelope.ui.components.securityHatch
-import dev.novanest.envelope.ui.theme.CardWhite
-import dev.novanest.envelope.ui.theme.Deep
+import dev.novanest.envelope.ui.components.CheckLetter
+import dev.novanest.envelope.ui.components.CloudBar
+import dev.novanest.envelope.ui.components.DecodeSchedule
+import dev.novanest.envelope.ui.components.Dock
+import dev.novanest.envelope.ui.components.LightStatusBarIcons
+import dev.novanest.envelope.ui.components.LineButton
+import dev.novanest.envelope.ui.components.LineHeight
+import dev.novanest.envelope.ui.components.LinePill
+import dev.novanest.envelope.ui.components.PillKind
+import dev.novanest.envelope.ui.components.TheLine
+import dev.novanest.envelope.ui.components.accentGlow
+import dev.novanest.envelope.ui.components.fadeUp
+import dev.novanest.envelope.ui.components.rememberStageClock
+import dev.novanest.envelope.ui.theme.BigNumber
+import dev.novanest.envelope.ui.theme.BodyTracking
+import dev.novanest.envelope.ui.theme.DeadlineLabel
 import dev.novanest.envelope.ui.theme.Ink
-import dev.novanest.envelope.ui.theme.InkBody
-import dev.novanest.envelope.ui.theme.InkSoft
-import dev.novanest.envelope.ui.theme.Neutral
-import dev.novanest.envelope.ui.theme.OnDeepSoft
-import dev.novanest.envelope.ui.theme.Primary
-import dev.novanest.envelope.ui.theme.Rule
-import dev.novanest.envelope.ui.theme.SoonBg
-import dev.novanest.envelope.ui.theme.SoonInk
-import dev.novanest.envelope.ui.theme.SoonTile
-import dev.novanest.envelope.ui.theme.Tint
-import dev.novanest.envelope.ui.theme.Urgent
-import dev.novanest.envelope.ui.theme.UrgentBg
+import dev.novanest.envelope.ui.theme.LineMoveMillis
+import dev.novanest.envelope.ui.theme.LocalReducedMotion
+import dev.novanest.envelope.ui.theme.Mine
+import dev.novanest.envelope.ui.theme.Muted
+import dev.novanest.envelope.ui.theme.OnSky
+import dev.novanest.envelope.ui.theme.OnSkyMuted
+import dev.novanest.envelope.ui.theme.PhoneBg
+import dev.novanest.envelope.ui.theme.RiskBg
+import dev.novanest.envelope.ui.theme.RiskInk
+import dev.novanest.envelope.ui.theme.Sky
+import dev.novanest.envelope.ui.theme.SoftSurface
+import dev.novanest.envelope.ui.theme.StandIn
+import dev.novanest.envelope.ui.theme.TitleTracking
+import dev.novanest.envelope.ui.theme.UiFamily
+import dev.novanest.envelope.ui.theme.WarnInk
 
+/** The line on the Check stage sits at least this far below the status bar (prototype: 150). */
+private val CheckLineY = 150.dp
+
+/**
+ * Check: the letter as it will cross the line. Gemini Nano (or the rules, without Nano) has swapped each personal
+ * detail for a stand-in; you can un-hide any of them, or hide more words, before anything goes up.
+ */
 @Composable
 fun ReviewScreen(
     ui: SessionUi,
@@ -91,59 +121,266 @@ fun ReviewScreen(
     onStartAgain: () -> Unit,
     onExplain: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
-            EnvelopeTopBar("Check your letter", onBack)
-            Stepper(active = if (ui.busy == Busy.READING) 0 else 1)
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 200.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LightStatusBarIcons()
+    val reduced = LocalReducedMotion.current
+    val density = LocalDensity.current
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val prepared = ui.prepared
+    val display = ui.display
+    val nano = prepared?.outcome?.mode == RedactionMode.NANO_AND_RULES
+    val hidden = prepared?.outcome?.redaction?.tokens?.size ?: 0
+
+    // The decode plays once per letter, the first time it appears; not again after rotation or un-hiding.
+    var played by rememberSaveable { mutableStateOf(false) }
+    val play = remember(display != null) { display != null && !played && !reduced }
+    LaunchedEffect(play) { if (play) played = true }
+    val schedule = remember(display?.chips?.size) { DecodeSchedule(display?.chips?.size ?: 0) }
+    val clock = rememberStageClock(play, schedule.endMillis)
+
+    var skyPx by remember { mutableIntStateOf(0) }
+    Box(Modifier.fillMaxSize().background(PhoneBg)) {
+        Column(Modifier.fillMaxSize()) {
+            CheckCloud(ui, onBack, Modifier.onSizeChanged { skyPx = it.height }.then(
+                if (reduced) Modifier else Modifier.animateContentSize(tween(LineMoveMillis, easing = dev.novanest.envelope.ui.theme.LineMoveEasing)),
+            ))
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 2.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 190.dp + navBottom),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 when (ui.busy) {
-                    Busy.READING -> LoadingCard("Reading your letter on this phone…")
-                    Busy.FINDING -> LoadingCard("Finding personal details on this phone…")
+                    Busy.READING -> Working("Reading your letter on this phone…")
+                    Busy.FINDING -> Working("Finding personal details on this phone…")
                     else -> Unit
                 }
-                ui.error?.let { ErrorNotice(it, ui.leaks) }
-                if (ui.busy == null && ui.prepared == null && ui.error == null) {
-                    // Android closed the app in the background; the letter only ever lived in memory.
-                    Notice(Icons.Rounded.PhoneAndroid, "This letter was closed", "For your privacy, letters aren’t kept while Envelope is closed. Scan it again to carry on.", Tint, Deep, CardWhite, Primary)
-                    EnvelopeButton("Back to start", onStartAgain)
-                }
-                val prepared = ui.prepared
-                val display = ui.display
+                ui.error?.let { ErrorCard(it, ui.leaks) }
+                if (ui.busy == null && prepared == null && ui.error == null) LetterClosed(onStartAgain)
                 if (prepared != null && display != null) {
-                    QuickCheckCard(ui)
-                    val hidden = prepared.outcome.redaction.tokens.size
-                    if (prepared.outcome.mode == RedactionMode.NANO_AND_RULES) NanoBanner(hidden) else RulesBanner(ui.nanoOnPhone)
+                    Counter(lockedCount(display, schedule, clock, hidden), nano)
+                    if (!nano) NoNanoBanner(ui.nanoOnPhone, display.suggestions.isNotEmpty())
                     if (!prepared.outcome.entityLayerWorked) Text(
                         "Address and phone detection is still getting ready on this phone. Check addresses yourself.",
-                        style = MaterialTheme.typography.bodyMedium, color = SoonInk, modifier = Modifier.padding(horizontal = 4.dp),
+                        color = DeadlineLabel, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp),
                     )
-                    Text(
-                        if (display.suggestions.isNotEmpty()) "Highlighted words look personal. Tap to hide them."
-                        else "Tap any word to hide it. Tap a blue block to show it.",
-                        style = MaterialTheme.typography.bodyMedium, color = InkSoft, modifier = Modifier.padding(horizontal = 4.dp),
-                    )
-                    RedactedLetter(display, onHideWord = onHideWord, onShowValue = onShowValue)
+                    CheckLetter(display, clock, schedule, onHideWord, onShowValue)
                 }
             }
         }
-        if (ui.prepared != null) {
-            ActionBar(ui, onLanguage, onExplain, Modifier.align(Alignment.BottomCenter))
+
+        // The line sits on the bottom edge of the cloud, wherever that is.
+        val half = with(density) { (LineHeight / 2).roundToPx() }
+        TheLine(Modifier.offset { IntOffset(0, skyPx - half) }, dashed = prepared != null && !nano)
+
+        if (prepared != null && display != null) {
+            CheckDock(ui, display, hidden, onLanguage, onExplain, Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
+
+/** Distinct details whose stand-in has locked so far; all of them once the decode has finished. */
+private fun lockedCount(display: LetterDisplay, schedule: DecodeSchedule, clock: Long, all: Int): Int {
+    if (clock == Long.MAX_VALUE || clock >= schedule.endMillis) return all
+    return display.chips.filterIndexed { i, _ -> clock >= schedule.lockAt(i) }.distinctBy { it.token }.size
+}
+
+// ---------- Above the line ----------
+
+@Composable
+private fun CheckCloud(ui: SessionUi, onBack: () -> Unit, modifier: Modifier) {
+    val qc = ui.quick
+    val wentUp = ui.quickEngine == Engine.IN_CLOUD
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(Sky)
+            .accentGlow(alpha = { 0.3f })
+            .statusBarsPadding()
+            .heightIn(min = CheckLineY)
+            .semantics(mergeDescendants = false) { contentDescription = "The cloud, Gemini" },
+    ) {
+        CloudBar(onBack) {
+            Text("Check", color = OnSky, fontFamily = UiFamily, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = TitleTracking, modifier = Modifier.weight(1f))
+            LinePill("Gemini", kind = PillKind.Cloud, icon = Icons.Rounded.Cloud)
+        }
+        Column(
+            Modifier.fadeUp().padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                if (wentUp) "Only stand-ins have gone up so far." else "Nothing has left your phone yet.",
+                color = OnSkyMuted, fontFamily = UiFamily, fontSize = 17.sp, lineHeight = 23.sp,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            when {
+                qc != null -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val days = Dates.daysLeft(qc.deadline)
+                    val left = days?.let { if (it < 0) "Overdue" else "$it ${if (it == 1) "day" else "days"} left" }
+                    Text(
+                        listOfNotNull(qc.sender, left).joinToString(" · "),
+                        color = OnSky, fontFamily = UiFamily, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(qc.oneLine, color = OnSkyMuted, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                ui.quickPending -> Text("Quick check running…", color = OnSkyMuted, fontFamily = UiFamily, fontSize = 15.sp)
+                else -> Unit
+            }
+        }
+    }
+}
+
+// ---------- Below the line ----------
+
+@Composable
+private fun Counter(count: Int, nano: Boolean) {
+    Row(
+        Modifier.padding(horizontal = 4.dp).clearAndSetSemantics {
+            contentDescription = "$count ${if (count == 1) "detail" else "details"} hidden${if (nano) " by Gemini Nano" else ""}. Tap a highlighted word to un-hide it."
+        },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("$count", style = BigNumber.copy(fontSize = 64.sp, lineHeight = 52.sp), color = StandIn)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                (if (count == 1) "detail hidden" else "details hidden") + if (nano) " by Gemini Nano" else "",
+                color = Ink, fontFamily = UiFamily, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = BodyTracking,
+            )
+            Text("Tap a highlighted word to un-hide it.", color = Muted, fontFamily = UiFamily, fontSize = 15.sp)
+        }
+    }
+}
+
+/** [nanoOnPhone]: Nano is installed but couldn't check this letter, which needs different words than "can't run". */
+@Composable
+private fun NoNanoBanner(nanoOnPhone: Boolean, suggestions: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Mine)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = WarnInk, modifier = Modifier.size(22.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                if (nanoOnPhone) "Gemini Nano couldn’t check this letter" else "No Gemini Nano on this phone",
+                color = WarnInk, fontFamily = UiFamily, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            )
+            Text(
+                if (suggestions) "Numbers are hidden. Underlined words look personal: tap to hide them."
+                else "Numbers are hidden. Names and addresses may still show: tap them to hide them.",
+                color = WarnInk, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+            )
         }
     }
 }
 
 @Composable
-private fun Stepper(active: Int) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf("Scan", "Check", "Explain").forEachIndexed { i, name ->
-            val done = i < active
-            val on = done || i == active
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(26.dp).clip(CircleShape).background(if (on) Primary else Rule), contentAlignment = Alignment.Center) {
-                    if (done) Icon(Icons.Rounded.Check, null, tint = CardWhite, modifier = Modifier.size(14.dp))
-                    else Text("${i + 1}", color = if (on) CardWhite else InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = if (i == active) FontWeight.Bold else FontWeight.Normal, color = if (on) Ink else InkSoft)
+private fun Working(text: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        CircularProgressIndicator(Modifier.size(22.dp), color = StandIn, strokeWidth = 2.5.dp)
+        Text(text, color = Ink, fontFamily = UiFamily, fontSize = 17.sp)
+    }
+}
+
+@Composable
+private fun ErrorCard(message: String, leaks: List<String>) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(RiskBg)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive }
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = RiskInk, modifier = Modifier.size(22.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(message, color = RiskInk, fontFamily = UiFamily, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (leaks.isNotEmpty()) "Still visible: ${leaks.joinToString()}. Tap those words to hide them, then try again."
+                else "Nothing was sent. Try again in a moment.",
+                color = RiskInk, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+            )
+        }
+    }
+}
+
+/** Android closed the app in the background; the letter only ever lived in memory. */
+@Composable
+private fun LetterClosed(onStartAgain: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SoftSurface).semantics(mergeDescendants = true) {}.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, tint = Ink, modifier = Modifier.size(22.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("This letter was closed", color = Ink, fontFamily = UiFamily, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "For your privacy, letters aren’t kept while Envelope is closed. Scan it again to carry on.",
+                    color = Ink, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+                )
+            }
+        }
+        LineButton("Back to start", onStartAgain, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun CheckDock(
+    ui: SessionUi, display: LetterDisplay, hidden: Int, onLanguage: (String) -> Unit, onExplain: () -> Unit, modifier: Modifier,
+) {
+    val warns = display.suggestions.size
+    val cross = when {
+        warns > 0 -> "$warns underlined ${if (warns == 1) "word" else "words"} will go up"
+        hidden == 0 -> "Nothing hidden yet"
+        else -> "$hidden ${if (hidden == 1) "stand-in" else "stand-ins"} will go up"
+    }
+    Dock(modifier) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(cross, color = Ink, fontFamily = UiFamily, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            LanguagePicker(ui.language, onLanguage)
+        }
+        LineButton(
+            text = if (ui.busy == Busy.EXPLAINING) "Explaining…" else "Explain this letter",
+            onClick = onExplain,
+            modifier = Modifier.fillMaxWidth(),
+            icon = Icons.Rounded.ArrowUpward,
+            enabled = ui.busy == null && ui.leaks.isEmpty() && !ui.notConfigured,
+            loading = ui.busy == Busy.EXPLAINING,
+        )
+        if (ui.notConfigured) Text("Add your Firebase config to explain letters.", color = Muted, fontFamily = UiFamily, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun LanguagePicker(language: String, onLanguage: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .heightIn(min = 36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(SoftSurface)
+                .clickable(role = Role.Button, onClickLabel = "Change answer language") { open = true }
+                .padding(start = 9.dp, end = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Icon(Icons.Rounded.Translate, contentDescription = null, tint = Ink, modifier = Modifier.size(14.dp))
+            Text(language, color = Ink, fontFamily = UiFamily, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Prefs.LANGUAGES.forEach { lang ->
+                DropdownMenuItem(text = { Text(lang, fontFamily = UiFamily) }, onClick = { open = false; onLanguage(lang) })
             }
         }
     }
@@ -157,106 +394,3 @@ fun categoryIcon(category: String?): ImageVector = when (category) {
     else -> Icons.Rounded.Description
 }
 
-private fun categoryName(category: String?) = when (category) {
-    "TAX" -> "Tax"; "COUNCIL" -> "Council"; "HEALTH" -> "Health"; "BANK" -> "Bank"
-    "HOUSING" -> "Housing"; "BENEFITS" -> "Benefits"; else -> "Letter"
-}
-
-@Composable
-private fun QuickCheckCard(ui: SessionUi) {
-    val qc: QuickCheck? = ui.quick
-    EnvelopeCard {
-        when {
-            qc != null -> {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconTile(categoryIcon(qc.category), Tint, Primary)
-                    Column(Modifier.weight(1f)) {
-                        Text(qc.sender, style = MaterialTheme.typography.titleMedium)
-                        Text(categoryName(qc.category), style = MaterialTheme.typography.bodySmall, color = InkSoft)
-                    }
-                    Dates.daysLeft(qc.deadline)?.let { days ->
-                        val (bg, fg) = deadlineColors(days)
-                        Pill(if (days < 0) "Overdue" else "$days ${if (days == 1) "day" else "days"}", bg, fg, Icons.Rounded.Schedule)
-                    }
-                }
-                Text(qc.oneLine, style = MaterialTheme.typography.bodyLarge)
-                if (ui.quickEngine == Engine.ON_DEVICE) Pill("Checked on this phone", Tint, Deep, Icons.Rounded.PhoneAndroid)
-                else Pill("Checked online, hidden version", Neutral, InkBody, Icons.Rounded.Cloud)
-            }
-            ui.quickDeferred -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                IconTile(Icons.Rounded.PhoneAndroid, Tint, Primary)
-                Text("Nothing has left this phone. Hide anything personal, then tap Explain.", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            }
-            ui.quickPending -> Text("Quick check running…", style = MaterialTheme.typography.bodyLarge, color = InkSoft)
-            else -> Text("Quick check needs Gemini Nano or an internet connection.", style = MaterialTheme.typography.bodyLarge, color = InkSoft)
-        }
-    }
-}
-
-@Composable
-private fun NanoBanner(hidden: Int) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Deep).securityHatch(CardWhite.copy(alpha = 0.05f)).padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        IconTile(Icons.Rounded.VerifiedUser, CardWhite.copy(alpha = 0.14f), CardWhite, iconSize = 24.dp)
-        Column {
-            Text("$hidden ${if (hidden == 1) "detail" else "details"} hidden", color = CardWhite, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp))
-            Text("Found by Gemini Nano, on this phone", color = OnDeepSoft, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-/** [nanoOnPhone]: Nano is installed but couldn't check this letter, which needs different words than "can't run". */
-@Composable
-private fun RulesBanner(nanoOnPhone: Boolean) = Notice(
-    Icons.Rounded.WarningAmber,
-    if (nanoOnPhone) "Gemini Nano couldn’t check this letter" else "This phone can’t run Gemini Nano",
-    "Numbers are hidden. Names and addresses may still show, so tap them to hide them.",
-    SoonBg, SoonInk, SoonTile,
-)
-
-@Composable
-private fun ErrorNotice(message: String, leaks: List<String>) = Notice(
-    Icons.Rounded.ErrorOutline, message,
-    if (leaks.isNotEmpty()) "Still visible: ${leaks.joinToString()}. Tap those words to hide them, then try again."
-    else "Nothing was sent. Try again in a moment.",
-    UrgentBg, Urgent, CardWhite,
-)
-
-@Composable
-private fun ActionBar(ui: SessionUi, onLanguage: (String) -> Unit, onExplain: () -> Unit, modifier: Modifier) {
-    var menu by remember { mutableStateOf(false) }
-    Surface(
-        modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
-        shape = RoundedCornerShape(26.dp), color = CardWhite.copy(alpha = 0.97f), shadowElevation = 12.dp,
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Only blue blocks go online", style = MaterialTheme.typography.bodyMedium, color = InkSoft, modifier = Modifier.weight(1f))
-                Box {
-                    Surface(onClick = { menu = true }, shape = CircleShape, color = Neutral) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Rounded.Translate, null, modifier = Modifier.size(16.dp))
-                            Text(ui.language, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        Prefs.LANGUAGES.forEach { lang ->
-                            DropdownMenuItem(text = { Text(lang) }, onClick = { menu = false; onLanguage(lang) })
-                        }
-                    }
-                }
-            }
-            EnvelopeButton(
-                text = if (ui.busy == Busy.EXPLAINING) "Explaining…" else "Explain this letter",
-                onClick = onExplain,
-                icon = Icons.Rounded.AutoAwesome,
-                enabled = ui.busy == null && ui.leaks.isEmpty() && !ui.notConfigured,
-                loading = ui.busy == Busy.EXPLAINING,
-            )
-            if (ui.notConfigured) Text("Add your Firebase config to explain letters.", style = MaterialTheme.typography.bodySmall, color = InkSoft)
-        }
-    }
-}

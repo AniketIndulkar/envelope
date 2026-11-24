@@ -150,7 +150,7 @@ private fun annotate(d: LetterDisplay, onShowValue: ((String) -> Unit)?): Annota
         }
     }
 
-private fun lineRects(l: TextLayoutResult, start: Int, end: Int, pad: Float): List<Rect> {
+internal fun lineRects(l: TextLayoutResult, start: Int, end: Int, pad: Float): List<Rect> {
     if (end <= start || end > l.layoutInput.text.length) return emptyList()
     val first = l.getLineForOffset(start)
     val last = l.getLineForOffset(end - 1)

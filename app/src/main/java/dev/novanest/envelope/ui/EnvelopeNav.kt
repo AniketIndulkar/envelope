@@ -56,6 +56,9 @@ fun EnvelopeNav() {
                     ),
                     onBack = { nav.popBackStack() },
                     onReceipt = { nav.navigate("receipt") },
+                    // Explaining already saved the letter to history; the dock just takes you back to the wallet.
+                    onDone = { nav.popBackStack("home", false) },
+                    doneLabel = "Saved to my letters",
                 )
             }
         }
