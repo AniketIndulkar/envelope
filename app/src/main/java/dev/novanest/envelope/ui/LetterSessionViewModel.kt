@@ -17,6 +17,7 @@ import dev.novanest.envelope.pipeline.Explained
 import dev.novanest.envelope.pipeline.LetterPipeline
 import dev.novanest.envelope.pipeline.PipelineError
 import dev.novanest.envelope.pipeline.Prepared
+import dev.novanest.envelope.ocr.Reflow
 import dev.novanest.envelope.pipeline.Step
 import dev.novanest.envelope.pipeline.StepRecord
 import dev.novanest.envelope.privacy.PiiSpan
@@ -98,7 +99,7 @@ class LetterSessionViewModel(app: Application) : AndroidViewModel(app) {
         pipeline = container.newPipeline(prefs.forceRulesOnly)
         _ui.value = SessionUi(busy = Busy.READING, language = prefs.language, notConfigured = !container.firebaseReady)
         forLetter { gen ->
-            ocrText = read()
+            ocrText = Reflow.lines(read())
             update(gen) { it.copy(busy = Busy.FINDING) }
             redact(gen)
             runQuickCheck(gen)

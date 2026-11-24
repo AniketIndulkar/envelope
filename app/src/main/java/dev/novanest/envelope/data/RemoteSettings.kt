@@ -8,6 +8,11 @@ import dev.novanest.envelope.privacy.PatternRedactor
 class RemoteSettings(private val rc: FirebaseRemoteConfig?, private val bundledPatterns: String) {
 
     val cloudModelName: String get() = rc?.getString("cloud_model_name")?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL
+
+    /** Tried in order when the main model is overloaded or out of quota. Remote Config: comma-separated names. */
+    val fallbackModelNames: List<String>
+        get() = (rc?.getString("cloud_fallback_models")?.takeIf { it.isNotBlank() } ?: DEFAULT_FALLBACKS)
+            .split(',').map(String::trim).filter(String::isNotEmpty)
     val nanoChunkWords: Int get() = rc?.getLong("nano_chunk_words")?.toInt()?.takeIf { it > 0 } ?: DEFAULT_CHUNK_WORDS
     val patternRedactor: PatternRedactor get() = patterns(rc?.getString("redaction_patterns_json").orEmpty(), bundledPatterns)
 
@@ -21,6 +26,7 @@ class RemoteSettings(private val rc: FirebaseRemoteConfig?, private val bundledP
 
     companion object {
         const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
+        const val DEFAULT_FALLBACKS = "gemini-3.8-flash,gemini-4-hydrogen"
 
         /** Nano's ~256-token output budget, not its 4000-token input, is the limit: keep chunks small enough that the span list fits. */
         const val DEFAULT_CHUNK_WORDS = 400

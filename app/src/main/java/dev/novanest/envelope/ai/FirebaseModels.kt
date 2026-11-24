@@ -10,6 +10,7 @@ import com.google.firebase.ai.type.FirebaseAIOnDeviceUnknownException
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.PublicPreviewAPI
 import com.google.firebase.ai.type.ServerException
+import com.google.firebase.ai.type.QuotaExceededException
 import com.google.firebase.ai.type.RequestOptions
 import com.google.firebase.ai.type.RequestTimeoutException
 import com.google.firebase.ai.type.generationConfig
@@ -27,7 +28,7 @@ import com.google.firebase.ai.type.thinkingConfig
  * - explainer: ONLY_IN_CLOUD — deep reasoning on redacted text.
  */
 @OptIn(PublicPreviewAPI::class)
-class FirebaseModels(val cloudModelName: String) {
+class FirebaseModels(val cloudModelName: String, val fallbacks: List<String> = emptyList()) {
 
     private val ai = Firebase.ai(backend = GenerativeBackend.googleAI())
     private val json = generationConfig { responseMimeType = "application/json"; temperature = 0.2f }
@@ -45,8 +46,8 @@ class FirebaseModels(val cloudModelName: String) {
         onDeviceConfig = OnDeviceConfig(mode = InferenceMode.PREFER_ON_DEVICE, maxOutputTokens = 200, temperature = 0.1f),
     )
 
-    private val explainerModel: GenerativeModel = ai.generativeModel(
-        modelName = cloudModelName,
+    private fun explainerFor(name: String): GenerativeModel = ai.generativeModel(
+        modelName = name,
         generationConfig = generationConfig {
             responseMimeType = "application/json"
             temperature = 0.3f
@@ -59,12 +60,16 @@ class FirebaseModels(val cloudModelName: String) {
 
     val redactor: TextModel = adapt(redactorModel)
     val quickCheck: TextModel = adapt(quickCheckModel)
-    val explainer: TextModel = adapt(explainerModel)
+    /** Primary model first, then the backups; a busy or out-of-quota model hands over to the next. */
+    val explainer: TextModel = FallbackTextModel(
+        (listOf(cloudModelName) + fallbacks).distinct().map { name -> adapt(explainerFor(name), attempts = 2, label = name) },
+        retryable = ::isBusy,
+    )
 
-    private fun adapt(model: GenerativeModel) = TextModel { prompt ->
+    private fun adapt(model: GenerativeModel, attempts: Int = 3, label: String = "") = TextModel { prompt ->
         val started = SystemClock.elapsedRealtime()
-        val response = withRetry { model.generateContent(prompt) }
-        if (BuildConfig.DEBUG) Log.d("FirebaseModels", "${response.inferenceSource} reply in ${SystemClock.elapsedRealtime() - started} ms, " +
+        val response = withRetry(attempts) { model.generateContent(prompt) }
+        if (BuildConfig.DEBUG) Log.d("FirebaseModels", "$label ${response.inferenceSource} reply in ${SystemClock.elapsedRealtime() - started} ms, " +
             "tokens in/out/thinking=${response.usageMetadata?.promptTokenCount}/${response.usageMetadata?.candidatesTokenCount}/${response.usageMetadata?.thoughtsTokenCount}")
         ModelReply(
             text = response.text.orEmpty(),
@@ -76,10 +81,10 @@ class FirebaseModels(val cloudModelName: String) {
      * Nano reports a busy state through unknown on-device errors; the cloud through ServerException, and a stalled
      * connection through RequestTimeoutException (we cap cloud calls at 30 s instead of the SDK's 180 s default).
      */
-    private suspend fun <T> withRetry(block: suspend () -> T): T {
-        // Overload spikes last seconds, not milliseconds: back off 1 s, 2 s, 4 s before giving up (~7 s in all).
+    private suspend fun <T> withRetry(attempts: Int, block: suspend () -> T): T {
+        // Overload spikes last seconds, not milliseconds: back off 1 s, 2 s, 4 s between attempts.
         var wait = 1_000L
-        repeat(3) { attempt ->
+        repeat(attempts - 1) { attempt ->
             try {
                 return block()
             } catch (e: Exception) {
@@ -90,6 +95,9 @@ class FirebaseModels(val cloudModelName: String) {
         }
         return block()
     }
+
+    private fun isBusy(e: Throwable): Boolean = generateSequence(e) { it.cause }
+        .any { it is ServerException || it is QuotaExceededException || it is RequestTimeoutException }
 
     private companion object {
         val CLOUD_TIMEOUT = RequestOptions(timeoutInMillis = 30_000)

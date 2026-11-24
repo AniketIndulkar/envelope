@@ -54,7 +54,9 @@ class AppContainer(
         get() {
             if (!firebaseReady) return null
             val name = settings.cloudModelName
-            return cachedModels?.takeIf { it.cloudModelName == name } ?: FirebaseModels(name).also { cachedModels = it }
+            val fallbacks = settings.fallbackModelNames
+            return cachedModels?.takeIf { it.cloudModelName == name && it.fallbacks == fallbacks }
+                ?: FirebaseModels(name, fallbacks).also { cachedModels = it }
         }
 
     val nanoStatus by lazy { NanoStatus(models?.redactorModel) }

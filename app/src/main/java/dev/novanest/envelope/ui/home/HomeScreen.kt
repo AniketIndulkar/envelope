@@ -22,6 +22,11 @@ import androidx.compose.material.icons.rounded.CurrencyPound
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GppMaybe
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import dev.novanest.envelope.ui.theme.Urgent
+import dev.novanest.envelope.ui.theme.UrgentBg
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MailOutline
 import androidx.compose.material.icons.rounded.Settings
@@ -40,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -147,6 +153,19 @@ fun HomeScreen(
     }
 }
 
+/** Suspected scams get a warning instead of a countdown: their deadlines are pressure, not real. */
+@Composable
+private fun ScamTile() {
+    Column(
+        Modifier.size(width = 60.dp, height = 64.dp).clip(RoundedCornerShape(16.dp)).background(UrgentBg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Rounded.GppMaybe, contentDescription = null, tint = Urgent, modifier = Modifier.size(24.dp))
+        Text("Scam?", color = Urgent, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
 @Composable
 private fun NanoBadge(state: NanoState) {
     val (text, dot) = when (state) {
@@ -164,13 +183,13 @@ private fun LetterRow(item: HomeItem, onClick: () -> Unit) {
     val record = item.record
     Surface(onClick = onClick, shape = CardShape, color = CardWhite, shadowElevation = 2.dp) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            DeadlineTile(Dates.daysLeft(record.deadline))
+            if (record.explanation?.redFlags.isNullOrEmpty()) DeadlineTile(Dates.daysLeft(record.deadline)) else ScamTile()
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(categoryIcon(record.quickCheck?.category), null, tint = InkSoft, modifier = Modifier.size(15.dp))
                     Text(record.quickCheck?.sender ?: "Letter", style = MaterialTheme.typography.bodySmall, color = InkSoft)
                 }
-                Text(item.line, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Text(item.line, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = InkFaint)
         }

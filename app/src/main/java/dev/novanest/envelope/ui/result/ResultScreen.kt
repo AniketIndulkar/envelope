@@ -136,18 +136,25 @@ private fun ScamWarning(flags: List<String>) = Notice(
 private fun Hero(model: ResultModel) {
     val context = LocalContext.current
     val e = model.explanation
-    val days = Dates.daysLeft(e.deadline)
+    // A suspected scam's "deadline" is a pressure tactic: never count it down or put it in the calendar.
+    val scam = e.redFlags.isNotEmpty()
+    val days = if (scam) null else Dates.daysLeft(e.deadline)
     HeroCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             days?.let { CountdownRing(it) }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(model.sender, style = MaterialTheme.typography.bodySmall, color = OnDeepSoft)
-                Text(e.actions.firstOrNull { it.by != null }?.let { a -> headline(a.step, a.by) } ?: e.summary.substringBefore(". "),
-                    style = MaterialTheme.typography.headlineSmall, color = CardWhite)
+                Text(
+                    when {
+                        scam -> "Check before you do anything"
+                        else -> e.actions.firstOrNull { it.by != null }?.let { a -> headline(a.step, a.by) } ?: e.summary.substringBefore(". ")
+                    },
+                    style = MaterialTheme.typography.headlineSmall, color = CardWhite,
+                )
             }
         }
         Text(e.whatItMeans.ifBlank { e.summary }, style = MaterialTheme.typography.bodyLarge, color = Tint)
-        Dates.parse(e.deadline)?.let { date ->
+        if (!scam) Dates.parse(e.deadline)?.let { date ->
             EnvelopeButton("Add to calendar", {
                 try { context.startActivity(calendarIntent("${model.sender}: deadline", e.summary, date)) } catch (_: ActivityNotFoundException) {}
             }, kind = ButtonKind.Light, icon = Icons.Rounded.CalendarMonth, height = 50.dp)

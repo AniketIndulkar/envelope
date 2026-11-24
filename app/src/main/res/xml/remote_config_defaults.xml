@@ -5,5 +5,6 @@
     <entry><key>prompt_redact</key><value></value></entry>
     <entry><key>prompt_quickcheck</key><value></value></entry>
     <entry><key>prompt_explain</key><value></value></entry>
+    <entry><key>cloud_fallback_models</key><value>gemini-3.8-flash,gemini-4-hydrogen</value></entry>
     <entry><key>nano_chunk_words</key><value>400</value></entry>
 </defaultsMap>
