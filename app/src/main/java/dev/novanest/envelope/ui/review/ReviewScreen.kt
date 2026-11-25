@@ -1,6 +1,15 @@
 package dev.novanest.envelope.ui.review
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.util.lerp
+import dev.novanest.envelope.ui.components.LineCrossing
+import dev.novanest.envelope.ui.theme.LineMoveEasing
+import kotlin.math.roundToInt
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -119,7 +128,10 @@ fun ReviewScreen(
     onShowValue: (String) -> Unit,
     onLanguage: (String) -> Unit,
     onStartAgain: () -> Unit,
-    onExplain: () -> Unit,
+    /** Start explaining; the callback fires once the answer is ready. */
+    onExplain: (onReady: () -> Unit) -> Unit,
+    /** Go to the Answer. Called once the answer is ready and the stand-ins have finished crossing. */
+    onAnswer: () -> Unit,
 ) {
     LightStatusBarIcons()
     val reduced = LocalReducedMotion.current
@@ -137,47 +149,109 @@ fun ReviewScreen(
     val schedule = remember(display?.chips?.size) { DecodeSchedule(display?.chips?.size ?: 0) }
     val clock = rememberStageClock(play, schedule.endMillis)
 
+    // ---- Explain stage: the same screen, with the line sliding down and the stand-ins rising through it ----
+    var explaining by rememberSaveable { mutableStateOf(false) }
+    var answerReady by remember { mutableStateOf(false) }
+    val stage = remember { Animatable(if (explaining) 1f else 0f) } // 0 = Check, 1 = Explain
+    val tokens = prepared?.outcome?.redaction?.tokens.orEmpty()
+    val standIns = remember(tokens) { tokens.map { LetterDisplay.label(it.token) }.distinct() }
+    val realValues = remember(tokens) { tokens.map { it.value }.filter { it.isNotBlank() }.distinct() }
+    val crossing = remember(standIns) { CrossingSchedule(flyingCount(standIns.size)) }
+    val explainClock = rememberStageClock(explaining && !reduced, crossing.doneMillis + 200)
+    var crossings by remember { mutableStateOf(emptyList<LineCrossing>()) }
+
+    // Back from the Answer (or the app was recreated) with nothing in flight: show Check again, without animating.
+    LaunchedEffect(Unit) {
+        if (explaining && ui.busy != Busy.EXPLAINING) { explaining = false; stage.snapTo(0f) }
+    }
+    LaunchedEffect(explaining) {
+        val target = if (explaining) 1f else 0f
+        if (!explaining) crossings = emptyList()
+        if (reduced) stage.snapTo(target) else stage.animateTo(target, tween(LineMoveMillis, easing = LineMoveEasing))
+    }
+    // Explaining failed: the error shows on Check, so slide back.
+    LaunchedEffect(ui.busy, ui.error) {
+        if (explaining && ui.busy == null && ui.error != null) explaining = false
+    }
+    val crossingDone = explainClock == Long.MAX_VALUE || explainClock >= crossing.doneMillis
+    LaunchedEffect(explaining, answerReady, crossingDone) {
+        if (explaining && answerReady && crossingDone) onAnswer()
+    }
+    val startExplain = {
+        answerReady = false
+        explaining = true
+        onExplain { answerReady = true }
+    }
+    val crossed = if (!explaining) 0 else (0 until flyingCount(standIns.size)).count { explainClock >= crossing.crossAt(it) }
+    val glow = if (explaining) 0.25f + 0.75f * (if (standIns.isEmpty()) 1f else crossed / flyingCount(standIns.size).toFloat()) else 0.3f
+
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val explainPx = with(density) { (statusTop + ExplainLineY).roundToPx() }
+    val checkPx = remember { intArrayOf(0) }
     var skyPx by remember { mutableIntStateOf(0) }
     Box(Modifier.fillMaxSize().background(PhoneBg)) {
         Column(Modifier.fillMaxSize()) {
-            CheckCloud(ui, onBack, Modifier.onSizeChanged { skyPx = it.height }.then(
-                if (reduced) Modifier else Modifier.animateContentSize(tween(LineMoveMillis, easing = dev.novanest.envelope.ui.theme.LineMoveEasing)),
-            ))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Sky)
+                    .accentGlow(alpha = { glow })
+                    .clipToBounds()
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                        if (!explaining) checkPx[0] = placeable.height
+                        val h = lerp(checkPx[0].toFloat(), explainPx.toFloat(), stage.value).roundToInt()
+                        layout(constraints.maxWidth, h) { placeable.place(0, 0) }
+                    }
+                    .onSizeChanged { skyPx = it.height }
+                    .semantics { contentDescription = "The cloud, Gemini" },
+            ) {
+                if (explaining) ExplainCloud(standIns, explainClock, crossing, onBack) { crossings = it }
+                else CheckCloud(ui, onBack, if (reduced) Modifier else Modifier.animateContentSize(tween(LineMoveMillis, easing = LineMoveEasing)))
+            }
             Column(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(top = 2.dp)
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 190.dp + navBottom),
+                    .then(if (explaining) Modifier else Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 190.dp + navBottom)),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                when (ui.busy) {
-                    Busy.READING -> Working("Reading your letter on this phone…")
-                    Busy.FINDING -> Working("Finding personal details on this phone…")
-                    else -> Unit
-                }
-                ui.error?.let { ErrorCard(it, ui.leaks) }
-                if (ui.busy == null && prepared == null && ui.error == null) LetterClosed(onStartAgain)
-                if (prepared != null && display != null) {
-                    Counter(lockedCount(display, schedule, clock, hidden), nano)
-                    if (!nano) NoNanoBanner(ui.nanoOnPhone, display.suggestions.isNotEmpty())
-                    if (!prepared.outcome.entityLayerWorked) Text(
-                        "Address and phone detection is still getting ready on this phone. Check addresses yourself.",
-                        color = DeadlineLabel, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
-                    CheckLetter(display, clock, schedule, onHideWord, onShowValue)
+                if (explaining) ExplainPhone(realValues)
+                else {
+                    when (ui.busy) {
+                        Busy.READING -> Working("Reading your letter on this phone…")
+                        Busy.FINDING -> Working("Finding personal details on this phone…")
+                        else -> Unit
+                    }
+                    ui.error?.let { ErrorCard(it, ui.leaks) }
+                    if (ui.busy == null && prepared == null && ui.error == null) LetterClosed(onStartAgain)
+                    if (prepared != null && display != null) {
+                        Counter(lockedCount(display, schedule, clock, hidden), nano)
+                        if (!nano) NoNanoBanner(ui.nanoOnPhone, display.suggestions.isNotEmpty())
+                        if (!prepared.outcome.entityLayerWorked) Text(
+                            "Address and phone detection is still getting ready on this phone. Check addresses yourself.",
+                            color = DeadlineLabel, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                        CheckLetter(display, clock, schedule, onHideWord, onShowValue)
+                    }
                 }
             }
         }
 
         // The line sits on the bottom edge of the cloud, wherever that is.
         val half = with(density) { (LineHeight / 2).roundToPx() }
-        TheLine(Modifier.offset { IntOffset(0, skyPx - half) }, dashed = prepared != null && !nano)
+        TheLine(
+            Modifier.offset { IntOffset(0, skyPx - half) },
+            dashed = !explaining && prepared != null && !nano,
+            hot = explaining,
+            crossings = crossings,
+        )
 
-        if (prepared != null && display != null) {
-            CheckDock(ui, display, hidden, onLanguage, onExplain, Modifier.align(Alignment.BottomCenter))
+        if (!explaining && prepared != null && display != null) {
+            CheckDock(ui, display, hidden, onLanguage, startExplain, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
@@ -194,15 +268,7 @@ private fun lockedCount(display: LetterDisplay, schedule: DecodeSchedule, clock:
 private fun CheckCloud(ui: SessionUi, onBack: () -> Unit, modifier: Modifier) {
     val qc = ui.quick
     val wentUp = ui.quickEngine == Engine.IN_CLOUD
-    Column(
-        modifier
-            .fillMaxWidth()
-            .background(Sky)
-            .accentGlow(alpha = { 0.3f })
-            .statusBarsPadding()
-            .heightIn(min = CheckLineY)
-            .semantics(mergeDescendants = false) { contentDescription = "The cloud, Gemini" },
-    ) {
+    Column(modifier.fillMaxWidth().statusBarsPadding().heightIn(min = CheckLineY)) {
         CloudBar(onBack) {
             Text("Check", color = OnSky, fontFamily = UiFamily, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = TitleTracking, modifier = Modifier.weight(1f))
             LinePill("Gemini", kind = PillKind.Cloud, icon = Icons.Rounded.Cloud)

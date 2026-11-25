@@ -19,6 +19,9 @@ import dev.novanest.envelope.ui.theme.Ink
 import dev.novanest.envelope.ui.theme.LetterBody
 import dev.novanest.envelope.ui.theme.Mine
 
+/** Addresses come in on several lines; as a chip they read better on one. */
+fun singleLine(value: String): String = value.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+
 /** Every place a real detail's value appears in [text], longest values first so "Margaret O'Neill" beats "O'Neill". */
 fun realDetailRanges(text: String, tokens: List<TokenEntry>): List<IntRange> {
     val taken = BooleanArray(text.length)

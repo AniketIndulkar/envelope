@@ -92,6 +92,7 @@ import dev.novanest.envelope.ui.components.TimelineStep
 import dev.novanest.envelope.ui.components.TimelineToday
 import dev.novanest.envelope.ui.components.accentGlow
 import dev.novanest.envelope.ui.components.realDetailRanges
+import dev.novanest.envelope.ui.components.singleLine
 import dev.novanest.envelope.ui.components.warmColor
 import dev.novanest.envelope.ui.theme.BodyTracking
 import dev.novanest.envelope.ui.theme.Hairline1
@@ -317,7 +318,7 @@ private fun PutBack(tokens: List<TokenEntry>) {
         LinePill("Put back on this phone only", kind = PillKind.Mine, icon = Icons.Rounded.PhoneAndroid)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             unique.take(PutBackShown).forEachIndexed { i, t ->
-                DecodeToReal(LetterDisplay.label(t.token), oneLine(t.value), delayMillis = 900L + i * 420L)
+                DecodeToReal(LetterDisplay.label(t.token), singleLine(t.value), delayMillis = 900L + i * 420L)
             }
             if (unique.size > PutBackShown) Text(
                 "+ ${unique.size - PutBackShown} more", color = Muted, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 30.sp,
@@ -325,9 +326,6 @@ private fun PutBack(tokens: List<TokenEntry>) {
         }
     }
 }
-
-/** Addresses come in on several lines; as a chip they read better on one. */
-private fun oneLine(value: String) = value.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
 
 @Composable
 private fun Summary(e: Explanation) {
