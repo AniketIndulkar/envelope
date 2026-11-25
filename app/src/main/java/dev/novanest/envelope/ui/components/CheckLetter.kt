@@ -112,9 +112,12 @@ fun CheckLetter(
     onHideWord: (String) -> Unit,
     onShowValue: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** False for a read-only copy (privacy receipt): no taps, no links. */
+    interactive: Boolean = true,
+    description: String = "Your letter, as it will cross the line",
 ) {
     val frame = if (clock == Long.MAX_VALUE || clock >= schedule.endMillis) {
-        remember(display) { settledFrame(display, onShowValue) }
+        remember(display, interactive) { settledFrame(display, onShowValue.takeIf { interactive }) }
     } else {
         decodingFrame(display, schedule, clock)
     }
@@ -128,7 +131,7 @@ fun CheckLetter(
             .clip(PaperShape)
             .background(Surface)
             .border(1.dp, Hairline1, PaperShape)
-            .semantics { contentDescription = "Your letter, as it will cross the line" }
+            .semantics { contentDescription = description }
             .drawWithContent {
                 drawContent()
                 val p = ((clock - DecodeSchedule.BeamDelay).toFloat() / DecodeSchedule.BeamMillis)
@@ -175,7 +178,7 @@ fun CheckLetter(
                     }
                 }
                 .then(
-                    if (!frame.settled) Modifier else Modifier.pointerInput(display) {
+                    if (!frame.settled || !interactive) Modifier else Modifier.pointerInput(display) {
                         detectTapGestures { pos ->
                             val l = layout ?: return@detectTapGestures
                             val offset = l.getOffsetForPosition(pos)
@@ -189,12 +192,12 @@ fun CheckLetter(
 }
 
 /** Final letter: stand-in pills are real links so TalkBack users can un-hide them too. */
-private fun settledFrame(d: LetterDisplay, onShowValue: (String) -> Unit): Frame {
+private fun settledFrame(d: LetterDisplay, onShowValue: ((String) -> Unit)?): Frame {
     val text = buildAnnotatedString {
         append(d.text)
         d.chips.forEach { chip ->
             addStyle(StandInSpan, chip.start, chip.end)
-            addLink(LinkAnnotation.Clickable("show:${chip.start}", PlainLink) { onShowValue(chip.value) }, chip.start, chip.end)
+            if (onShowValue != null) addLink(LinkAnnotation.Clickable("show:${chip.start}", PlainLink) { onShowValue(chip.value) }, chip.start, chip.end)
         }
     }
     return Frame(text, d.chips.map { Seg(it.start, it.end, SegKind.StandIn) }, settled = true)
@@ -224,4 +227,16 @@ private fun decodingFrame(d: LetterDisplay, schedule: DecodeSchedule, t: Long): 
         append(d.text, cursor, d.text.length)
     }
     return Frame(text, segs, settled = false)
+}
+
+/** One rect per text line that [start, end) covers, inset vertically by [pad]. */
+internal fun lineRects(l: TextLayoutResult, start: Int, end: Int, pad: Float): List<Rect> {
+    if (end <= start || end > l.layoutInput.text.length) return emptyList()
+    val first = l.getLineForOffset(start)
+    val last = l.getLineForOffset(end - 1)
+    return (first..last).map { line ->
+        val left = if (line == first) l.getHorizontalPosition(start, true) else l.getLineLeft(line)
+        val right = if (line == last) l.getHorizontalPosition(end, true) else l.getLineRight(line)
+        Rect(left, l.getLineTop(line) + pad, right, l.getLineBottom(line) - pad)
+    }
 }

@@ -47,26 +47,3 @@ val RailRisk = Color(0xFFE3B4AE)
 val NanoReady = Color(0xFF3E9B6E)
 val NanoMissing = Color(0xFFB26A00)
 val WarnInk = Color(0xFF4A2D00)
-
-// Legacy names still used by screens not yet redesigned (phases 2–5).
-// Mapped onto the Plum palette so the whole app reads as one theme mid-migration; removed in phase 6.
-val Canvas = PhoneBg
-val CardWhite = Surface
-val InkBody = InkPressed
-val InkSoft = Muted
-val InkFaint = Hairline4
-val Rule = Hairline1
-val Neutral = SoftSurface
-val Primary = StandIn
-val Deep = Sky
-val Tint = StandInSoft
-val OnDeepSoft = OnSkyMuted
-val Ready = NanoReady
-val Urgent = UrgentRed
-val UrgentBg = RiskBg
-val Soon = DeadlineLabel
-val SoonBg = Mine
-val SoonTile = AccentRing
-val SoonInk = RiskInk
-val SoonLine = Accent
-val RealMark = Mine

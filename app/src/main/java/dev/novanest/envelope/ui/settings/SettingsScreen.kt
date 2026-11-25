@@ -37,8 +37,10 @@ import dev.novanest.envelope.data.Prefs
 import dev.novanest.envelope.ui.components.EnvelopeButton
 import dev.novanest.envelope.ui.components.EnvelopeCard
 import dev.novanest.envelope.ui.components.EnvelopeTopBar
-import dev.novanest.envelope.ui.theme.InkSoft
-import dev.novanest.envelope.ui.theme.Primary
+import dev.novanest.envelope.ui.theme.Muted
+import dev.novanest.envelope.ui.theme.StandIn
+import dev.novanest.envelope.ui.theme.PhoneBg
+import androidx.compose.foundation.background
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -50,7 +52,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var language by remember { mutableStateOf(prefs.language) }
     var forceRules by remember { mutableStateOf(prefs.forceRulesOnly) }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().background(PhoneBg).statusBarsPadding().verticalScroll(rememberScrollState())) {
         EnvelopeTopBar("Settings", onBack)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             EnvelopeCard {
@@ -71,13 +73,13 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             EnvelopeCard {
                 Text("Explain letters in", style = MaterialTheme.typography.titleLarge)
-                Text("Replies to the sender are always written in English.", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+                Text("Replies to the sender are always written in English.", style = MaterialTheme.typography.bodyMedium, color = Muted)
                 Prefs.LANGUAGES.forEach { lang ->
                     Row(
                         Modifier.fillMaxWidth().selectable(language == lang, role = Role.RadioButton) { language = lang; prefs.language = lang }.padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(selected = language == lang, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Primary))
+                        RadioButton(selected = language == lang, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = StandIn))
                         Text("  $lang", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
@@ -89,7 +91,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text("Demo: act like a phone without Nano", style = MaterialTheme.typography.titleMedium)
-                        Text("Debug builds only.", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+                        Text("Debug builds only.", style = MaterialTheme.typography.bodyMedium, color = Muted)
                     }
                     Switch(checked = forceRules, onCheckedChange = null)
                 }

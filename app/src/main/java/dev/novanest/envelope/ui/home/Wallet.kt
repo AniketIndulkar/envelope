@@ -58,6 +58,7 @@ import dev.novanest.envelope.ui.components.LineButtonKind
 import dev.novanest.envelope.ui.components.LinePill
 import dev.novanest.envelope.ui.components.Pass
 import dev.novanest.envelope.ui.components.PassFront
+import dev.novanest.envelope.ui.components.ReceiptPass
 import dev.novanest.envelope.ui.components.PillKind
 import dev.novanest.envelope.ui.components.StandInChip
 import dev.novanest.envelope.ui.components.StandInTone
@@ -264,68 +265,10 @@ private fun PassFrontFor(letter: WalletLetter, onOpen: () -> Unit, onFlip: () ->
     }
 }
 
-/** Back of the pass: the privacy receipt. Above the line what went to Gemini, below what never left. */
-@OptIn(ExperimentalLayoutApi::class)
+/** Back of the pass: the privacy receipt. */
 @Composable
 private fun PassBack(letter: WalletLetter, onFlip: () -> Unit) {
-    Pass(
-        Modifier.semantics(mergeDescendants = false) { contentDescription = "Privacy receipt for the letter from ${letter.from}" },
-        top = {
-            LinePill("Went up to Gemini", kind = PillKind.Cloud, icon = Icons.Rounded.Cloud)
-            Text(
-                if (letter.kept == 0) "Nothing personal was found to hide"
-                else "Only ${letter.kept} ${if (letter.kept == 1) "stand-in" else "stand-ins"} crossed the line",
-                color = OnSky, fontFamily = UiFamily, fontSize = 24.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
-                letterSpacing = TitleTracking, modifier = Modifier.padding(top = 4.dp),
-            )
-            if (letter.standIns.isNotEmpty()) FlowRow(
-                Modifier.padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                letter.standIns.forEach { StandInChip(it, tone = StandInTone.Cloud) }
-            }
-        },
-        bottom = {
-            LinePill("Stayed on this phone", kind = PillKind.Phone, icon = Icons.Rounded.PhoneAndroid)
-            Row(
-                Modifier.clearAndSetSemantics { contentDescription = "${letter.kept} real details never left this phone" },
-                verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text("${letter.kept}", style = BigNumber.copy(fontSize = 72.sp, lineHeight = 58.sp), color = Ink)
-                Text("real details\nnever left", color = Ink, fontFamily = UiFamily, fontSize = 20.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = TitleTracking)
-            }
-            Column {
-                letter.ledger.forEachIndexed { i, (kind, n) -> LedgerRow(kind, n, divider = i > 0) }
-            }
-            LineButton("Turn back", onFlip, Modifier.fillMaxWidth(), LineButtonKind.Secondary, Icons.Rounded.Sync, minHeight = 50.dp)
-        },
-    )
-}
-
-/** "Names ........ 2" with a dotted leader. */
-@Composable
-private fun LedgerRow(kind: String, count: Int, divider: Boolean) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(if (divider) Modifier.drawBehind { drawRect(Hairline2, size = size.copy(height = 1.dp.toPx())) } else Modifier)
-            .semantics(mergeDescendants = true) {}
-            .padding(vertical = 9.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(kind, color = Ink, fontFamily = UiFamily, fontSize = 15.sp)
-        Box(
-            Modifier.weight(1f).height(14.dp).drawBehind {
-                val y = size.height - 4.dp.toPx()
-                drawLine(
-                    Hairline4, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.5.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(1.5.dp.toPx(), 3.dp.toPx())),
-                )
-            },
-        )
-        Text("$count", color = Ink, fontFamily = UiFamily, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-    }
+    ReceiptPass(letter.standIns, letter.ledger, a11yLabel = "Privacy receipt for the letter from ${letter.from}", onTurnBack = onFlip)
 }
 
 /** No letters yet: an empty pass explaining what will live here. */
