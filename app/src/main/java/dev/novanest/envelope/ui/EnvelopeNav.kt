@@ -38,9 +38,13 @@ fun EnvelopeNav() {
             )
         }
         composable("review") {
-            ReviewScreen(ui, { nav.popBackStack() }, session::hideWord, session::showValue, session::setLanguage, onStartAgain = { nav.popBackStack("home", false) }) {
-                session.explain { nav.navigate("result") }
-            }
+            ReviewScreen(
+                ui, { nav.popBackStack() }, session::hideWord, session::showValue, session::setLanguage,
+                onStartAgain = { nav.popBackStack("home", false) },
+                // The Check screen plays the Explain stage itself and moves on once the answer is ready.
+                onExplain = { onReady -> session.explain(onReady) },
+                onAnswer = { nav.navigate("result") },
+            )
         }
         composable("result") {
             val explained = ui.explained
@@ -56,6 +60,9 @@ fun EnvelopeNav() {
                     ),
                     onBack = { nav.popBackStack() },
                     onReceipt = { nav.navigate("receipt") },
+                    // Explaining already saved the letter to history; the dock just takes you back to the wallet.
+                    onDone = { nav.popBackStack("home", false) },
+                    doneLabel = "Saved to my letters",
                 )
             }
         }

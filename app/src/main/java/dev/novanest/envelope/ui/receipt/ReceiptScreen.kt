@@ -1,17 +1,17 @@
 package dev.novanest.envelope.ui.receipt
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,131 +20,150 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.novanest.envelope.ai.Engine
 import dev.novanest.envelope.pipeline.Step
 import dev.novanest.envelope.pipeline.StepRecord
-import dev.novanest.envelope.privacy.PiiType
 import dev.novanest.envelope.privacy.Redaction
 import dev.novanest.envelope.ui.LetterDisplay
-import dev.novanest.envelope.ui.components.EnvelopeCard
+import dev.novanest.envelope.ui.components.CheckLetter
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
+import dev.novanest.envelope.ui.components.DecodeSchedule
 import dev.novanest.envelope.ui.components.EnvelopeTopBar
-import dev.novanest.envelope.ui.components.HeroCard
-import dev.novanest.envelope.ui.components.IconTile
-import dev.novanest.envelope.ui.components.Notice
-import dev.novanest.envelope.ui.components.OriginalLetter
-import dev.novanest.envelope.ui.components.Pill
-import dev.novanest.envelope.ui.components.RedactedLetter
-import dev.novanest.envelope.ui.theme.CardWhite
-import dev.novanest.envelope.ui.theme.Deep
+import dev.novanest.envelope.ui.components.MarkedLetterText
+import dev.novanest.envelope.ui.components.ReceiptPass
+import dev.novanest.envelope.ui.home.WalletLetter
+import dev.novanest.envelope.ui.theme.Hairline1
 import dev.novanest.envelope.ui.theme.Ink
-import dev.novanest.envelope.ui.theme.InkSoft
-import dev.novanest.envelope.ui.theme.Neutral
-import dev.novanest.envelope.ui.theme.OnDeepSoft
-import dev.novanest.envelope.ui.theme.Primary
-import dev.novanest.envelope.ui.theme.Tint
+import dev.novanest.envelope.ui.theme.LetterBody
+import dev.novanest.envelope.ui.theme.Muted
+import dev.novanest.envelope.ui.theme.OnSky
+import dev.novanest.envelope.ui.theme.PhoneBg
+import dev.novanest.envelope.ui.theme.Rail
+import dev.novanest.envelope.ui.theme.Sky
+import dev.novanest.envelope.ui.theme.SoftSurface
+import dev.novanest.envelope.ui.theme.StandIn
+import dev.novanest.envelope.ui.theme.StandInSoft
+import dev.novanest.envelope.ui.theme.Surface
+import dev.novanest.envelope.ui.theme.TitleTracking
+import dev.novanest.envelope.ui.theme.UiFamily
 
+/**
+ * Privacy receipt for the letter just explained: the same pass as the back of a wallet letter, then the letter
+ * itself (as sent, or as it is on this phone) and where each step ran.
+ */
 @Composable
 fun ReceiptScreen(redaction: Redaction, steps: List<StepRecord>, onBack: () -> Unit) {
+    DarkStatusBarIcons()
     var sentView by rememberSaveable { mutableStateOf(true) }
-    val hidden = redaction.tokens.size
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
+    val tokens = remember(redaction) { redaction.tokens.map { it.token }.distinct() }
+    val standIns = remember(tokens) { tokens.map { LetterDisplay.label(it) } }
+    val ledger = remember(tokens) { WalletLetter.ledgerOf(tokens) }
+    val display = remember(redaction) { LetterDisplay.of(redaction) }
+    val originalMarks = remember(redaction) { redaction.placements.map { it.originalStart until it.originalEnd } }
+
+    Column(Modifier.fillMaxSize().background(PhoneBg).statusBarsPadding().verticalScroll(rememberScrollState())) {
         EnvelopeTopBar("Privacy receipt", onBack)
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 32.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Hero(hidden, redaction.countsByType())
-            EnvelopeCard(padding = 16.dp) {
-                Toggle(sentView) { sentView = it }
-                if (sentView) RedactedLetter(LetterDisplay.of(redaction), flat = true)
-                else OriginalLetter(redaction, flat = true)
-            }
-            EnvelopeCard(padding = 18.dp) {
-                Text("Where each step ran", style = MaterialTheme.typography.titleLarge)
-                Timeline(steps)
-            }
-            Notice(
-                Icons.Rounded.VerifiedUser, null,
-                "Your history online keeps only the hidden version. Your real details stay on this phone and are never backed up.",
-                Tint, Deep, CardWhite, Primary,
+            ReceiptPass(standIns, ledger)
+            Text(
+                "Dates, amounts and who sent the letter were kept, so the explanation is right.",
+                color = Muted, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(horizontal = 4.dp),
             )
+
+            Heading("The letter")
+            Toggle(sentView) { sentView = it }
+            if (sentView) CheckLetter(
+                display, clock = Long.MAX_VALUE, schedule = DecodeSchedule(display.chips.size),
+                onHideWord = {}, onShowValue = {}, interactive = false, description = "The letter as it went to Gemini",
+            ) else Paper { MarkedLetterText(redaction.original, originalMarks, style = LetterBody.copy(lineHeight = 30.sp)) }
+
+            Heading("Where each step ran")
+            StepRail(steps)
+
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SoftSurface).semantics(mergeDescendants = true) {}
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, tint = Ink, modifier = Modifier.size(20.dp))
+                Text(
+                    "Your history online keeps only the hidden version. Your real details stay on this phone and are never backed up.",
+                    color = Ink, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+                )
+            }
         }
     }
 }
 
-private val plural = mapOf(
-    PiiType.NAME to ("name" to "names"), PiiType.ADDRESS to ("address" to "addresses"),
-    PiiType.POSTCODE to ("postcode" to "postcodes"), PiiType.NI_NUMBER to ("NI number" to "NI numbers"),
-    PiiType.ACCOUNT to ("bank detail" to "bank details"), PiiType.REFERENCE to ("reference" to "references"),
-    PiiType.PHONE to ("phone number" to "phone numbers"), PiiType.EMAIL to ("email" to "emails"),
-    PiiType.DOB to ("date of birth" to "dates of birth"),
+@Composable
+private fun Heading(text: String) = Text(
+    text, color = Ink, fontFamily = UiFamily, fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = TitleTracking,
+    modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp).semantics { heading() },
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Hero(hidden: Int, counts: Map<PiiType, Int>) {
-    HeroCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("$hidden", style = MaterialTheme.typography.displayLarge, color = CardWhite)
-            Text(
-                if (hidden == 1) "personal detail never left this phone" else "personal details never left this phone",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = CardWhite,
-            )
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            counts.entries.sortedBy { it.key.ordinal }.forEach { (type, n) ->
-                val (one, many) = plural.getValue(type)
-                Pill("$n ${if (n == 1) one else many}", CardWhite.copy(alpha = 0.14f), CardWhite)
-            }
-        }
-        Text("Dates, amounts and who sent the letter were kept, so the explanation is right.", style = MaterialTheme.typography.bodyMedium, color = OnDeepSoft)
-    }
+private fun Paper(content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        Modifier.fillMaxWidth().shadow(12.dp, shape, ambientColor = Ink, spotColor = Ink).clip(shape).background(Surface)
+            .border(1.dp, Hairline1, shape).padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 24.dp),
+    ) { content() }
 }
 
 @Composable
 private fun Toggle(sent: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Neutral).padding(4.dp).selectableGroup(),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SoftSurface).padding(4.dp).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Segment("On your phone", Icons.Rounded.PhoneAndroid, !sent, Modifier.weight(1f)) { onChange(false) }
-        Segment("Sent online", Icons.Rounded.Cloud, sent, Modifier.weight(1f)) { onChange(true) }
+        Segment("Sent to Gemini", Icons.Rounded.Cloud, sent, Modifier.weight(1f)) { onChange(true) }
+        Segment("On this phone", Icons.Rounded.PhoneAndroid, !sent, Modifier.weight(1f)) { onChange(false) }
     }
 }
 
 @Composable
-private fun Segment(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Surface(
-        modifier.height(46.dp).selectable(selected, role = Role.Tab, onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) CardWhite else Neutral,
-        shadowElevation = if (selected) 2.dp else 0.dp,
+private fun Segment(label: String, icon: ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(shape)
+            .background(if (selected) Surface else SoftSurface)
+            .then(if (selected) Modifier.border(1.dp, Hairline1, shape) else Modifier)
+            .selectable(selected, role = Role.Tab, onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = if (selected) Ink else InkSoft, modifier = Modifier.size(16.dp))
-            Text("  $label", style = MaterialTheme.typography.labelMedium, color = if (selected) Ink else InkSoft)
-        }
+        Icon(icon, contentDescription = null, tint = if (selected) Ink else Muted, modifier = Modifier.size(16.dp))
+        Text(label, color = if (selected) Ink else Muted, fontFamily = UiFamily, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -156,28 +175,37 @@ private fun stepTitle(step: Step) = when (step) {
 }
 
 private fun where(r: StepRecord) = when (r.engine) {
-    Engine.IN_CLOUD -> "Online, hidden version only"
-    Engine.RULES -> "On this phone, rules only"
-    Engine.ON_DEVICE -> if (r.step == Step.READ) "On this phone" else "On this phone, Gemini Nano"
+    Engine.IN_CLOUD -> "Gemini, stand-ins only"
+    Engine.RULES -> "This phone, rules only"
+    Engine.ON_DEVICE -> if (r.step == Step.READ) "This phone" else "This phone, Gemini Nano"
 }
 
+/** Each step on a rail: plum cloud dot for Gemini, soft plum phone dot for this phone. */
 @Composable
-private fun Timeline(steps: List<StepRecord>) {
+private fun StepRail(steps: List<StepRecord>) {
     val all = steps + if (steps.any { it.step == Step.EXPLAIN }) listOf(null) else emptyList() // null = "put details back"
     Column {
         all.forEachIndexed { i, r ->
-            val online = r?.engine == Engine.IN_CLOUD
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconTile(
-                        if (online) Icons.Rounded.Cloud else Icons.Rounded.PhoneAndroid,
-                        if (online) Ink else Tint, if (online) CardWhite else Primary, iconSize = 20.dp,
-                    )
-                    if (i < all.lastIndex) Box(Modifier.width(2.dp).fillMaxHeight().background(Tint))
+            val cloud = r?.engine == Engine.IN_CLOUD
+            Row(
+                Modifier.fillMaxWidth().height(IntrinsicSize.Min).semantics(mergeDescendants = true) {},
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.width(32.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier.size(32.dp).clip(CircleShape).background(if (cloud) Sky else StandInSoft),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (cloud) Icons.Rounded.Cloud else Icons.Rounded.PhoneAndroid, contentDescription = null,
+                            tint = if (cloud) OnSky else StandIn, modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    if (i < all.lastIndex) Box(Modifier.width(2.dp).weight(1f).background(Rail))
                 }
-                Column(Modifier.padding(top = 2.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("${i + 1}. ${r?.let { stepTitle(it.step) } ?: "Put your details back"}", style = MaterialTheme.typography.titleMedium)
-                    Text(r?.let(::where) ?: "On this phone", style = MaterialTheme.typography.bodyMedium, color = if (online) Ink else Primary)
+                Column(Modifier.padding(top = 5.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(r?.let { stepTitle(it.step) } ?: "Put your details back", color = Ink, fontFamily = UiFamily, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(r?.let(::where) ?: "This phone", color = if (cloud) Ink else StandIn, fontFamily = UiFamily, fontSize = 15.sp)
                 }
             }
         }

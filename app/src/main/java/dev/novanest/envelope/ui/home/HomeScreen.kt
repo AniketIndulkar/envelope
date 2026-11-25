@@ -1,80 +1,78 @@
 package dev.novanest.envelope.ui.home
 
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.CurrencyPound
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DocumentScanner
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.GppMaybe
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
-import dev.novanest.envelope.ui.theme.Urgent
-import dev.novanest.envelope.ui.theme.UrgentBg
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.MailOutline
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.novanest.envelope.ai.NanoState
 import dev.novanest.envelope.data.LetterRecord
 import dev.novanest.envelope.data.SampleLetter
-import dev.novanest.envelope.ui.Dates
-import dev.novanest.envelope.ui.components.ButtonKind
-import dev.novanest.envelope.ui.components.CardShape
-import dev.novanest.envelope.ui.components.DeadlineTile
-import dev.novanest.envelope.ui.components.EnvelopeButton
-import dev.novanest.envelope.ui.components.EnvelopeCard
-import dev.novanest.envelope.ui.components.HeroCard
-import dev.novanest.envelope.ui.components.IconTile
-import dev.novanest.envelope.ui.components.Notice
-import dev.novanest.envelope.ui.components.Pill
-import dev.novanest.envelope.ui.components.SectionTitle
-import dev.novanest.envelope.ui.components.SquareIconButton
-import dev.novanest.envelope.ui.review.categoryIcon
-import dev.novanest.envelope.ui.theme.CardWhite
-import dev.novanest.envelope.ui.theme.Deep
-import dev.novanest.envelope.ui.theme.InkFaint
-import dev.novanest.envelope.ui.theme.InkSoft
-import dev.novanest.envelope.ui.theme.OnDeepSoft
-import dev.novanest.envelope.ui.theme.Ready
-import dev.novanest.envelope.ui.theme.SoonTile
-import dev.novanest.envelope.ui.theme.Tint
-import dev.novanest.envelope.ui.theme.Primary
+import dev.novanest.envelope.ui.components.Dock
+import dev.novanest.envelope.ui.components.LineButton
+import dev.novanest.envelope.ui.components.LineButtonKind
+import dev.novanest.envelope.ui.components.LinePill
+import dev.novanest.envelope.ui.components.PillKind
+import dev.novanest.envelope.ui.theme.Ink
+import dev.novanest.envelope.ui.theme.Mine
+import dev.novanest.envelope.ui.theme.Muted
+import dev.novanest.envelope.ui.theme.PhoneBg
+import dev.novanest.envelope.ui.theme.SoftSurface
+import dev.novanest.envelope.ui.theme.StandIn
+import dev.novanest.envelope.ui.theme.Surface
+import dev.novanest.envelope.ui.theme.UiFamily
+import dev.novanest.envelope.ui.theme.WarnInk
 
+/**
+ * Wallet home: your saved letters as passes. The soonest deadline is in front; the others are stacked strips above it.
+ * Only real saved letters appear here, never samples.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -84,68 +82,111 @@ fun HomeScreen(
     onOpen: (LetterRecord) -> Unit,
     onSettings: () -> Unit,
 ) {
+    DarkStatusBarIcons()
     val nano by vm.nano.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
+    val letters = remember(history) { history.map { WalletLetter.of(it) } }
+    val records = remember(history) { history.associate { it.record.id to it.record } }
     var pickSample by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                IconTile(Icons.Rounded.MailOutline, Deep, CardWhite, size = 40.dp, corner = 12.dp)
-                Text("Envelope", style = MaterialTheme.typography.titleLarge.copy(fontSize = MaterialTheme.typography.headlineSmall.fontSize), modifier = Modifier.weight(1f))
-                SquareIconButton(Icons.Rounded.Settings, "Settings", onSettings)
-            }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var fanned by rememberSaveable { mutableStateOf(false) }
+    var flipped by rememberSaveable { mutableStateOf(false) }
+    // Letters already seen, so one saved while we were away can drop in. The first non-empty list is the baseline.
+    var known by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var landedId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(letters) {
+        if (letters.isEmpty()) return@LaunchedEffect
+        val ids = letters.map { it.id }
+        val before = known
+        if (before != null) ids.firstOrNull { it !in before }?.let { new ->
+            landedId = new; selectedId = new; flipped = false; fanned = false
         }
-        item {
-            HeroCard(Modifier.padding(top = 4.dp), flap = true) {
-                Spacer(Modifier.height(60.dp))
-                NanoBadge(nano)
-                Text("Understand any official letter", style = MaterialTheme.typography.displaySmall, color = CardWhite)
+        known = ids
+    }
+    val front = letters.firstOrNull { it.id == selectedId } ?: letters.firstOrNull()
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    Box(Modifier.fillMaxSize().background(PhoneBg)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp + navBottom),
+        ) {
+            Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Your name, address and numbers are hidden on this phone before anything goes online.",
-                    style = MaterialTheme.typography.bodyLarge, color = OnDeepSoft,
+                    "Envelope", color = Ink, fontFamily = UiFamily, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.045).em, modifier = Modifier.weight(1f).semantics { heading() },
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    EnvelopeButton("Scan a letter", onScan, kind = ButtonKind.Light, icon = Icons.Rounded.DocumentScanner)
-                    EnvelopeButton("Try a sample letter", { pickSample = true }, kind = ButtonKind.Ghost, height = 50.dp)
-                }
+                IconButton(onClick = onSettings) { Icon(Icons.Rounded.Tune, contentDescription = "Settings", tint = Ink) }
             }
-        }
-        if (!vm.firebaseReady) item {
-            Notice(Icons.Rounded.Settings, "Firebase isn’t set up", "Add your google-services.json to explain letters. Scanning and hiding details still work.", Tint, Deep, CardWhite, Primary)
-        }
-        item {
-            Row(Modifier.fillMaxWidth().padding(top = 14.dp, start = 4.dp, end = 4.dp), verticalAlignment = Alignment.Bottom) {
-                SectionTitle(if (history.isEmpty()) "Your letters" else "Coming up", Modifier.weight(1f).padding(horizontal = 0.dp))
-                if (history.isNotEmpty()) Text("${history.size} ${if (history.size == 1) "letter" else "letters"}", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+            Row(
+                Modifier.fillMaxWidth().padding(start = 4.dp, top = 10.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.weight(1f)) { NanoPill(nano) }
+                if (letters.size > 1) Text(
+                    if (fanned) "Stack" else "Show all ${letters.size}",
+                    color = StandIn, fontFamily = UiFamily, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(role = Role.Button) { fanned = !fanned }
+                        .semantics { stateDescription = if (fanned) "Showing all letters" else "Stacked" }
+                        .padding(horizontal = 6.dp, vertical = 10.dp),
+                )
             }
-        }
-        if (history.isEmpty()) item {
-            Notice(
-                Icons.Rounded.VerifiedUser, null,
-                "Letters you scan show up here, soonest deadline first. Only the hidden version is saved online.",
-                Tint, Deep, CardWhite, Primary,
+            if (!vm.firebaseReady) FirebaseNotice()
+            if (front == null) EmptyPass()
+            else WalletStack(
+                letters = letters,
+                front = front,
+                fanned = fanned,
+                flipped = flipped,
+                landedId = landedId,
+                onPick = { selectedId = it.id; flipped = false; fanned = false; landedId = null },
+                onOpen = { l -> records[l.id]?.let(onOpen) },
+                onFlip = { flipped = !flipped },
             )
         }
-        items(history, key = { it.record.id }) { LetterRow(it) { onOpen(it.record) } }
+
+        Dock(Modifier.align(Alignment.BottomCenter)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LineButton("Scan a letter", onScan, Modifier.weight(1f), icon = Icons.Rounded.DocumentScanner)
+                LineButton("Sample", { pickSample = true }, kind = LineButtonKind.Secondary)
+            }
+        }
     }
 
     if (pickSample) {
-        ModalBottomSheet(onDismissRequest = { pickSample = false }, containerColor = CardWhite) {
+        ModalBottomSheet(onDismissRequest = { pickSample = false }, containerColor = Surface) {
             Column(Modifier.padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Try a sample letter", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 4.dp))
-                Text("Fictional letters, so you can try Envelope without your own.", style = MaterialTheme.typography.bodyMedium, color = InkSoft, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
+                Text(
+                    "Try a sample letter", color = Ink, fontFamily = UiFamily, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 4.dp).semantics { heading() },
+                )
+                Text(
+                    "Fictional letters, so you can try Envelope without your own.", color = Muted, fontFamily = UiFamily, fontSize = 15.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                )
                 vm.samples.forEach { s ->
-                    Surface(onClick = { pickSample = false; onSample(s) }, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            IconTile(Icons.Rounded.Description, Tint, Primary, size = 40.dp, iconSize = 20.dp, corner = 12.dp)
-                            Text(s.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = InkFaint)
-                        }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(SoftSurface)
+                            .clickable(role = Role.Button) { pickSample = false; onSample(s) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Rounded.Description, contentDescription = null, tint = StandIn, modifier = Modifier.size(20.dp))
+                        Text(s.title, color = Ink, fontFamily = UiFamily, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = Muted)
                     }
                 }
             }
@@ -153,45 +194,29 @@ fun HomeScreen(
     }
 }
 
-/** Suspected scams get a warning instead of a countdown: their deadlines are pressure, not real. */
 @Composable
-private fun ScamTile() {
-    Column(
-        Modifier.size(width = 60.dp, height = 64.dp).clip(RoundedCornerShape(16.dp)).background(UrgentBg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+private fun NanoPill(state: NanoState) = when (state) {
+    NanoState.Ready -> LinePill("Gemini Nano on this phone", kind = PillKind.Phone, dot = true)
+    is NanoState.Downloading -> LinePill("Getting Gemini Nano… ${state.percent}%", kind = PillKind.Warn, dot = true)
+    NanoState.Downloadable -> LinePill("Gemini Nano can be downloaded in Settings", kind = PillKind.Warn, dot = true)
+    NanoState.Checking -> LinePill("Checking for Gemini Nano…", kind = PillKind.Phone)
+    NanoState.Unavailable -> LinePill("No Nano: numbers still hidden", kind = PillKind.Warn, dot = true)
+}
+
+@Composable
+private fun FirebaseNotice() {
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 14.dp).clip(RoundedCornerShape(14.dp)).background(Mine)
+            .semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(Icons.Rounded.GppMaybe, contentDescription = null, tint = Urgent, modifier = Modifier.size(24.dp))
-        Text("Scam?", color = Urgent, style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
-private fun NanoBadge(state: NanoState) {
-    val (text, dot) = when (state) {
-        NanoState.Ready -> "Gemini Nano ready on this phone" to Ready
-        is NanoState.Downloading -> "Getting Gemini Nano… ${state.percent}%" to SoonTile
-        NanoState.Downloadable -> "Gemini Nano can be downloaded in Settings" to SoonTile
-        NanoState.Checking -> "Checking for Gemini Nano…" to OnDeepSoft
-        NanoState.Unavailable -> "Private mode: rules on this phone" to SoonTile
-    }
-    Pill(text, CardWhite.copy(alpha = 0.14f), CardWhite, dot = dot)
-}
-
-@Composable
-private fun LetterRow(item: HomeItem, onClick: () -> Unit) {
-    val record = item.record
-    Surface(onClick = onClick, shape = CardShape, color = CardWhite, shadowElevation = 2.dp) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (record.explanation?.redFlags.isNullOrEmpty()) DeadlineTile(Dates.daysLeft(record.deadline)) else ScamTile()
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(categoryIcon(record.quickCheck?.category), null, tint = InkSoft, modifier = Modifier.size(15.dp))
-                    Text(record.quickCheck?.sender ?: "Letter", style = MaterialTheme.typography.bodySmall, color = InkSoft)
-                }
-                Text(item.line, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = InkFaint)
+        Icon(Icons.Rounded.Settings, contentDescription = null, tint = WarnInk, modifier = Modifier.size(20.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Firebase isn’t set up", color = WarnInk, fontFamily = UiFamily, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Add your google-services.json to explain letters. Scanning and hiding details still work.",
+                color = WarnInk, fontFamily = UiFamily, fontSize = 15.sp, lineHeight = 22.sp,
+            )
         }
     }
 }

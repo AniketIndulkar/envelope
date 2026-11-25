@@ -1,5 +1,10 @@
 package dev.novanest.envelope.ui.history
 
+import dev.novanest.envelope.ui.theme.RiskBg
+import dev.novanest.envelope.ui.theme.RiskInk
+import dev.novanest.envelope.ui.theme.PhoneBg
+import androidx.compose.foundation.background
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,10 +22,6 @@ import dev.novanest.envelope.privacy.Restorer
 import dev.novanest.envelope.ui.components.EnvelopeTopBar
 import dev.novanest.envelope.ui.components.LoadingCard
 import dev.novanest.envelope.ui.components.Notice
-import dev.novanest.envelope.ui.theme.CardWhite
-import dev.novanest.envelope.ui.theme.Deep
-import dev.novanest.envelope.ui.theme.Primary
-import dev.novanest.envelope.ui.theme.Tint
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import dev.novanest.envelope.ui.result.ResultModel
@@ -61,13 +62,14 @@ class HistoryDetailViewModel(app: Application) : AndroidViewModel(app) {
 fun HistoryDetailScreen(vm: HistoryDetailViewModel, onBack: () -> Unit) {
     val model by vm.model.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
-    model?.let { ResultScreen(it, onBack, onReceipt = null) } ?: Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    if (model == null) DarkStatusBarIcons()
+    model?.let { ResultScreen(it, onBack, onReceipt = null) } ?: Column(Modifier.fillMaxSize().background(PhoneBg).statusBarsPadding()) {
         EnvelopeTopBar("What it means", onBack)
         Column(Modifier.padding(16.dp)) {
             if (failed) Notice(
                 Icons.Rounded.CloudOff, "Couldn’t open this letter",
                 "Check your internet connection and try again. Your details are still safe on this phone.",
-                Tint, Deep, CardWhite, Primary,
+                RiskBg, RiskInk,
             ) else LoadingCard("Opening your letter…")
         }
     }
