@@ -1,5 +1,6 @@
 package dev.novanest.envelope.ui.settings
 
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import dev.novanest.envelope.ui.theme.Primary
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
+    DarkStatusBarIcons()
     val context = LocalContext.current
     val container = (context.applicationContext as EnvelopeApp).container
     val prefs = remember { Prefs(context) }

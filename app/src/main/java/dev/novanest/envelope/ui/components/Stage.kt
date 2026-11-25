@@ -13,7 +13,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.RowScope
@@ -27,17 +27,25 @@ import dev.novanest.envelope.ui.theme.OnSky
 import dev.novanest.envelope.ui.theme.SettleEasing
 import kotlinx.coroutines.delay
 
-/** Stages with the plum cloud at the top need white status bar icons while they show. */
+/**
+ * Status bar icon colour for the screen being shown: white over the plum cloud, dark over the light phone screens.
+ * Each screen states its own, so whichever screen is entering wins; nothing is restored on leave.
+ */
 @Composable
-fun LightStatusBarIcons() {
+fun StatusBarIcons(darkIcons: Boolean) {
     val activity = LocalActivity.current ?: return
-    DisposableEffect(activity) {
-        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
-        val before = controller.isAppearanceLightStatusBars
-        controller.isAppearanceLightStatusBars = false
-        onDispose { controller.isAppearanceLightStatusBars = before }
+    SideEffect {
+        WindowCompat.getInsetsController(activity.window, activity.window.decorView).isAppearanceLightStatusBars = darkIcons
     }
 }
+
+/** Stages with the plum cloud at the top need white status bar icons. */
+@Composable
+fun LightStatusBarIcons() = StatusBarIcons(darkIcons = false)
+
+/** Light screens (wallet, settings, receipt) need dark status bar icons. */
+@Composable
+fun DarkStatusBarIcons() = StatusBarIcons(darkIcons = true)
 
 /** The bar at the top of a cloud stage: a Close button, then whatever the stage puts in [content]. */
 @Composable

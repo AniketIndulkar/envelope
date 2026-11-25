@@ -1,5 +1,6 @@
 package dev.novanest.envelope.ui.history
 
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,6 +62,7 @@ class HistoryDetailViewModel(app: Application) : AndroidViewModel(app) {
 fun HistoryDetailScreen(vm: HistoryDetailViewModel, onBack: () -> Unit) {
     val model by vm.model.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
+    if (model == null) DarkStatusBarIcons()
     model?.let { ResultScreen(it, onBack, onReceipt = null) } ?: Column(Modifier.fillMaxSize().statusBarsPadding()) {
         EnvelopeTopBar("What it means", onBack)
         Column(Modifier.padding(16.dp)) {

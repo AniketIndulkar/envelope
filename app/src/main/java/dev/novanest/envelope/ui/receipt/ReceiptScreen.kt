@@ -1,5 +1,6 @@
 package dev.novanest.envelope.ui.receipt
 
+import dev.novanest.envelope.ui.components.DarkStatusBarIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,7 @@ import dev.novanest.envelope.ui.theme.Tint
 
 @Composable
 fun ReceiptScreen(redaction: Redaction, steps: List<StepRecord>, onBack: () -> Unit) {
+    DarkStatusBarIcons()
     var sentView by rememberSaveable { mutableStateOf(true) }
     val hidden = redaction.tokens.size
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {

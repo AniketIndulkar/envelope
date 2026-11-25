@@ -36,6 +36,8 @@ import dev.novanest.envelope.ui.theme.Sky
 import dev.novanest.envelope.ui.theme.Surface
 import dev.novanest.envelope.ui.theme.UiFamily
 import dev.novanest.envelope.ui.theme.UnitText
+import dev.novanest.envelope.ui.theme.TitleTracking
+import kotlin.math.abs
 
 val PassShape = RoundedCornerShape(24.dp)
 
@@ -126,6 +128,11 @@ fun PassFront(
     due: String?,
     modifier: Modifier = Modifier,
     dueSoon: Boolean = days != null && days <= 7,
+    /** Shown in the number's place when [days] is null ("No deadline", "Check first"). */
+    noNumberText: String = "No deadline",
+    /** Top-right badge; defaults to "Due soon" when [dueSoon]. */
+    badge: (@Composable () -> Unit)? = if (dueSoon) ({ DueSoonBadge() }) else null,
+    a11yLabel: String? = null,
     bottom: @Composable ColumnScope.() -> Unit,
 ) {
     Pass(
@@ -133,7 +140,7 @@ fun PassFront(
         top = {
             Column(
                 Modifier.clearAndSetSemantics {
-                    contentDescription = buildString {
+                    contentDescription = a11yLabel ?: buildString {
                         append("Letter from $from")
                         if (days != null) append(", $days ${if (days == 1) "day" else "days"} left")
                         due?.let { append(". $it") }
@@ -146,12 +153,15 @@ fun PassFront(
                         from, color = OnSkyMuted, fontFamily = UiFamily, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                     )
-                    if (dueSoon) DueSoonBadge()
+                    badge?.invoke()
                 }
-                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-                    DaysNumber(days)
+                if (days != null) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+                    DaysNumber(abs(days), color = warmColor(days))
                     Text(unit, color = OnSky, style = UnitText, modifier = Modifier.padding(bottom = 6.dp))
-                }
+                } else Text(
+                    noNumberText, color = OnSky, fontFamily = UiFamily, fontSize = 34.sp, lineHeight = 36.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = TitleTracking, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                )
                 due?.let { Text(it, color = OnSkyMuted, fontFamily = UiFamily, fontSize = 15.sp) }
             }
         },
@@ -160,10 +170,10 @@ fun PassFront(
 }
 
 @Composable
-private fun DueSoonBadge() {
+fun DueSoonBadge(text: String = "Due soon", bg: Color = Accent, fg: Color = Ink) {
     Text(
-        "Due soon",
-        color = Ink, fontFamily = UiFamily, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Accent).padding(horizontal = 9.dp, vertical = 4.dp),
+        text,
+        color = fg, fontFamily = UiFamily, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(bg).padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
